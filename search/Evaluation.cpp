@@ -36,7 +36,7 @@ int16 evaluate(const GameState& gameState, Color color) {
 	comps.kings = evaluateKing(gameState, mgFactor, egFactor);
 
 	int16 score = comps.pawns + comps.knights + comps.bishops + comps.rooks + comps.queens + comps.kings;
-	return color == White ? score : -score;
+	return score;
 }
 
 int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor) {
@@ -446,12 +446,12 @@ int16 evaluateKing(const GameState& gameState, float mgFactor, float egFactor) {
 
 	#ifdef DEBUG_EVAL
 	std::cout << "King Eval: wPT=" << wPieceTableScore 
-        	<< " wCastle=" << wCastledScore 
-        	<< " wShield=" << wPawnShieldScore 
-        	<< " | bPT=" << bPieceTableScore 
-        	<< " bCastle=" << bCastledScore 
-        	<< " bShield=" << bPawnShieldScore 
-        	<< " | total=" << total
+		<< " wCastle=" << wCastledScore 
+		<< " wShield=" << wPawnShieldScore 
+		<< " | bPT=" << bPieceTableScore 
+		<< " bCastle=" << bCastledScore 
+		<< " bShield=" << bPawnShieldScore 
+		<< " | total=" << total
 		<< "\n";
 	#endif
 

@@ -10,6 +10,7 @@
 void printPieceMoves(GameState& gameState, Piece piece) {
 	std::vector<Move> moves;
 	std::vector<MoveInfo> history;
+	Color color = isWhite(piece) ? White : Black;
 
 	switch (piece) {
 	case WPawn: generatePawnMoves(gameState, moves, White, false); break;
@@ -44,22 +45,22 @@ void printPieceMoves(GameState& gameState, Piece piece) {
 				  << " (flags=" << move.getFlags() << ")\n";
 	}
 
-	// filterMoves(gameState, history, moves, color);
+	filterMoves(gameState, history, moves, color);
 
-	// std::cout << "Legal Moves for piece " << (int)piece << ":\n";
-	// for (const Move& move : moves) {
-	// 	int from = move.getStartSquare();
-	// 	int to   = move.getTargetSquare();
+	std::cout << "Legal Moves for piece " << (int)piece << ":\n";
+	for (const Move& move : moves) {
+		int from = move.getStartSquare();
+		int to   = move.getTargetSquare();
 
-	// 	char fromFile = 'a' + (from % 8);
-	// 	char fromRank = '1' + (from / 8);
-	// 	char toFile   = 'a' + (to % 8);
-	// 	char toRank   = '1' + (to / 8);
+		char fromFile = 'a' + (from % 8);
+		char fromRank = '1' + (from / 8);
+		char toFile   = 'a' + (to % 8);
+		char toRank   = '1' + (to / 8);
 
-	// 	std::cout << fromFile << fromRank << " -> " 
-	// 			  << toFile << toRank 
-	// 			  << " (flags=" << move.getFlags() << ")\n";
-	// }
+		std::cout << fromFile << fromRank << " -> " 
+				  << toFile << toRank 
+				  << " (flags=" << move.getFlags() << ")\n";
+	}
 }
 
 

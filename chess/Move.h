@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cassert>
+#include <string>
 
 #include "Common.h"
 
@@ -17,10 +18,9 @@ typedef struct Move {
 	uint16 val; // Flags - Target Position - Start Position  0000 - 000000 - 000000 
 	
 	Move(uint16 moveValue) { val = moveValue; }
-
-	Move(uint16 startPos, uint16 targetPos, uint16 flags) {
-		assert(startPos <= 63 && targetPos <= 63 && flags <= 15);
-		val = startPos | (targetPos << 6) | (flags << 12);
+	Move(uint16 startSq, uint16 targetSq, uint16 FLAGS) {
+		assert(startSq <= 63 && targetSq <= 63 && FLAGS <= 15);
+		val = startSq | (targetSq << 6) | (FLAGS << 12);
 	}
 	
 	inline uint16 getStartSquare() const { return val & START_SQUARE_MASK; }
@@ -42,7 +42,14 @@ typedef struct Move {
 	inline bool isRookPromotion() const { return (getFlags() & 0b1110) == ROOK_PROMOTE_FLAG; } 
 	inline bool isQueenPromotion() const { return (getFlags() & 0b1110) == QUEEN_PROMOTE_FLAG; }
 	inline bool isPromotion() const { return getFlags() >= KNIGHT_PROMOTE_FLAG; }
+	std::string moveToString() const;
 } Move;
 static_assert(sizeof(Move) == 2);
+
+inline std::string squareToString(uint16 sq) {
+	char file = 'a' + (sq % 8);
+	char rank = '1' + (sq / 8);
+	return std::string() + file + rank;
+}
 
 

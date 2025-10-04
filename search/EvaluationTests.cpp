@@ -5,7 +5,7 @@
 #include "Evaluation.h"
 #include "../chess/GameState.h"
 #include "../helpers/timer.h"
-#include "../helpers/BitboardHelper.h"
+#include "../helpers/GameStateHelper.h"
 
 void testIsolatePawn() {
 	std::string fen = "8/8/8/8/8/8/8/P1P5 w - - 0 1"; 

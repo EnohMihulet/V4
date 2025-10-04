@@ -63,15 +63,33 @@ constexpr uint64 RANK_8 = 0xFF00000000000000ULL;
 constexpr uint64 FILES[] = {FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H};
 constexpr uint64 RANKS[] = {RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
 
+enum SQ {
+	A1, B1, C1, D1, E1, F1, G1, H1,
+	A2, B2, C2, D2, E2, F2, G2, H2,
+	A3, B3, C3, D3, E3, F3, G3, H3,
+	A4, B4, C4, D4, E4, F4, G4, H4,
+	A5, B5, C5, D5, E5, F5, G5, H5,
+	A6, B6, C6, D6, E6, F6, G6, H6,
+	A7, B7, C7, D7, E7, F7, G7, H7,
+	A8, B8, C8, D8, E8, F8, G8, H8,
+	NO_SQUARE
+};
+
 enum Color { White = 0, Black = 1 };
 enum PieceIndex { WPawn = 0, WKnight = 1, WBishop = 2, WRook = 3, WQueen = 4, WKing = 5, BPawn = 6, BKnight = 7, BBishop = 8, BRook = 9, BQueen = 10, BKing = 11};
 enum BitboardIndex { AllIndex = 12, WhiteIndex = 13, BlackIndex = 14 };
-enum GameResult { InProgress, WhiteWin, BlackWin, Stalemate, AgreeToDraw, ThreeFoldRepetition, FiftyMoveRule, InsufficientMaterial, WhiteTimeOut, BlackTimeOut, WhiteResign, BlackResign }; 
+enum GameResult { InProgress = 0, WhiteWin = 1, BlackWin = 2, Stalemate = 3, AgreeToDraw = 4, ThreeFoldRepetition = 5, FiftyMoveRule = 6, InsufficientMaterial = 7,
+		WhiteTimeOut = 8, BlackTimeOut = 9, WhiteResign = 10, BlackResign = 11 }; 
 
 constexpr uint8 EMPTY = 15;
 constexpr uint8 PIECE_COUNT = 12;
 
-constexpr std::string_view DEFAULT_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0";
+constexpr uint16 NULL_MOVE = 0;
+
+constexpr int16 NEG_INF = INT16_MIN + 1;
+constexpr int16 POS_INF = INT16_MAX;
+
+constexpr std::string_view DEFAULT_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0";
 
 inline uint16 getPieceType(Piece piece) { return piece % 6; }
 inline bool isWhite(Piece piece) { return piece < 6; }

@@ -1,14 +1,20 @@
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "chess/Common.h"
 #include "movegen/MoveGenTest.h"
 #include "search/EvaluationTests.h"
-#include "helpers/BitboardHelper.h"
+#include "helpers/GameStateHelper.h"
+#include "search/Search.h"
 
 int main() {
-
-	testEqualPositions();
+	
+	GameState gameState((std::string) DEFAULT_FEN_POSITION);
+	std::vector<MoveInfo> history;
+	history.reserve(64);
+	Move move = iterativeDeepeningSearch(gameState, history);
+	std::cout << move.moveToString() << std::endl;
 
 	std::string command;
 	while (std::getline(std::cin, command)) {

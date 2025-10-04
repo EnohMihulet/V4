@@ -2,13 +2,15 @@ CXX = clang++
 CXXFLAGS = -std=c++17 -Wall -Wextra -I./chess -I./movegen -I./helpers
 
 OBJS = main.o \
-       chess/GameRules.o \
-       chess/GameState.o \
-       movegen/MoveGen.o \
-       movegen/MoveGenTest.o \
-       helpers/BitboardHelper.o \
-       search/Evaluation.o \
-       search/EvaluationTests.o
+	chess/GameRules.o \
+	chess/GameState.o \
+	chess/Move.o \
+	movegen/MoveGen.o \
+	movegen/MoveGenTest.o \
+	helpers/GameStateHelper.o \
+	search/Evaluation.o \
+	search/EvaluationTests.o \
+	search/Search.o
 
 release: CXXFLAGS += -O2
 release: TARGET = engine

@@ -112,7 +112,6 @@ void generatePawnMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard empty = ~gameState.bitboards[AllIndex];
 	Bitboard pawns = (color == White) ? gameState.bitboards[WPawn] : gameState.bitboards[BPawn];
 	Bitboard enemys = (color == White) ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
-	Bitboard enemyPawns = (color == White) ? gameState.bitboards[BPawn] : gameState.bitboards[WPawn];
 	uint8 enpassantFile = gameState.enPassantFile;
 	Bitboard epFileMask = 0ULL;
 	if (enpassantFile != NO_ENPASSANT_FILE) epFileMask = FILE_A << enpassantFile;
@@ -123,9 +122,6 @@ void generatePawnMoves(const GameState& gameState, std::vector<Move>& moves, Col
 
 	int16 leftShift = (color == White) ? 7 : -9;
 	int16 rightShift = (color == White) ? 9 : -7;
-	int16 epLeftShift = leftShift;
-	int16 epRightShift = rightShift;
-	int16 epEnemyShift = (color == White) ? 8 : -8;
 
 	auto pushLoop = [&](Bitboard bb, int16 shift, uint16 promotionRank) {
 		while (bb) {
@@ -184,15 +180,14 @@ void generatePawnMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard leftCaptures = (leftShift > 0 ? (pawns & ~FILE_A) << leftShift : (pawns & ~FILE_A) >> -leftShift) & enemys;
 	Bitboard rightCaptures = (rightShift > 0 ? (pawns & ~FILE_H) << rightShift : (pawns & ~FILE_H) >> -rightShift) & enemys;
 
-	Bitboard leftEnpassant = (leftShift > 0 ? (pawns & ~FILE_A) << epLeftShift : (pawns & ~FILE_A) >> -epLeftShift)
-				& ((epEnemyShift > 0 ? enemyPawns << epEnemyShift : enemyPawns >> -epEnemyShift) & epFileMask);
-	Bitboard rightEnpassant = (rightShift > 0 ? (pawns & ~FILE_H) << epRightShift : (pawns & ~FILE_H) >> -epRightShift)
-				& ((epEnemyShift > 0 ? enemyPawns << epEnemyShift : enemyPawns >> -epEnemyShift) & epFileMask);
+	Bitboard epSquare = (epFileMask & ((color == White) ? RANK_6 : RANK_3));
+	Bitboard leftEnpassant = (pawns & ~FILE_A) << leftShift & epSquare;
+	Bitboard rightEnpassant = (pawns & ~FILE_H) << rightShift & epSquare;
 
 	captureLoop(leftCaptures, leftShift, promotionRank);
 	captureLoop(rightCaptures, rightShift, promotionRank);
-	epLoop(leftEnpassant, epLeftShift);
-	epLoop(rightEnpassant, epRightShift);
+	epLoop(leftEnpassant, leftShift);
+	epLoop(rightEnpassant, rightShift);
 }
 
 void generateKnightMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking) {
@@ -273,7 +268,7 @@ void generateBishopMoves(const GameState& gameState, std::vector<Move>& moves, C
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[4] = {7, 9, -7, -9};
-	constexpr uint64 boundryMasks[4] = {FILE_A, FILE_H, FILE_A, FILE_H};
+	constexpr uint64 boundryMasks[4] = {FILE_H, FILE_A, FILE_H, FILE_A};
 
 	while (bishops) {
 		Bitboard bishop = bishops & -bishops;
@@ -307,7 +302,7 @@ void generateRookMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[4] = {1, 8, -1, -8};
-	constexpr uint64 boundryMasks[4] = {FILE_H, RANK_8, FILE_A, RANK_1};
+	constexpr uint64 boundryMasks[4] = {FILE_A, RANK_1, FILE_H, RANK_8};
 
 	while (rooks) {
 		Bitboard rook = rooks & -rooks;
@@ -319,7 +314,7 @@ void generateRookMoves(const GameState& gameState, std::vector<Move>& moves, Col
 			Bitboard current = rook;
 			while (true) {
 				current = direction < 0 ? current >> abs(direction) : current << direction;
-				if ((current & (boundryMask)) != 0) break;
+				if ((current & boundryMask) != 0) break;
 
 				if ((current & empty) != 0) {
 					if (!onlyAttacking) moves.push_back(Move(from, __builtin_ctzll(current), NO_FLAG));
@@ -341,7 +336,7 @@ void generateQueenMoves(const GameState& gameState, std::vector<Move>& moves, Co
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[8] = {1, 8, -1, -8, 7, 9, -7, -9};
-	constexpr uint64 boundryMasks[8] = {FILE_H, RANK_8, FILE_A, RANK_1,FILE_A, FILE_H, FILE_A, FILE_H};
+	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_H, FILE_A};
 
 	while (queens) {
 		Bitboard queen = queens & -queens;
@@ -353,7 +348,7 @@ void generateQueenMoves(const GameState& gameState, std::vector<Move>& moves, Co
 			Bitboard current = queen;
 			while (true) {
 				current = direction < 0 ? current >> abs(direction) : current << direction;
-				if ((current & (boundryMask)) != 0) break;
+				if ((current & boundryMask) != 0) break;
 
 				if ((current & empty) != 0) {
 					if (!onlyAttacking) moves.push_back(Move(from, __builtin_ctzll(current), NO_FLAG));
@@ -375,7 +370,7 @@ void generateKingMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[8] = {1, 8, -1, -8, 7, 9, -7, -9};
-	constexpr uint64 boundryMasks[8] = {FILE_H, RANK_8, FILE_A, RANK_1,FILE_A, FILE_H, FILE_A, FILE_H};
+	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_H, FILE_A};
 
 	uint16 from = __builtin_ctzll(king);
 

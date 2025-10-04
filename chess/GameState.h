@@ -5,7 +5,6 @@
 
 #include "Move.h"
 
-
 typedef struct GameState {
 
 	std::array<Piece, 64> board;

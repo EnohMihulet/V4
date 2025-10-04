@@ -1,14 +1,18 @@
 #include <array>
+#include <cctype>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include "GameState.h"
+#include "../helpers/GameStateHelper.h"
 
 
 Piece charToPiece(char c); 
 uint16 squareCharToInt(char c); 
 
 GameState::GameState(const std::string& fen) {
+	// TODO: ZOBRIST
 	board.fill(EMPTY);
 	bitboards.fill(0ULL);
 	zobristHash = 0ULL;
@@ -18,74 +22,80 @@ GameState::GameState(const std::string& fen) {
 	fullMoves = 1;
 	colorToMove = White;
 
+	std::istringstream ss(fen);
+	std::string boardPart, activeColor, castling, enPassant, halfMoveStr, fullMoveStr;
+	ss >> boardPart >> activeColor >> castling >> enPassant >> halfMoveStr >> fullMoveStr;
+
 	uint16 rank = 7;
 	uint16 file = 0;
-	uint16 square = 0;
-	for (std::size_t i = 0; i < fen.size(); i++) {
-		char c = fen[i];
-		if (c == ' ') {
-			c = fen[++i];
-			if (c == 'w') colorToMove = White;
-			else colorToMove = Black;
-			i += 2;
-			while (fen[i] != ' ') {
-				c = fen[i];
-				if (c == '-') castlingRights = 0;
-				else if (c == 'K') castlingRights |= W_KING_SIDE;
-				else if (c == 'Q') castlingRights |= W_QUEEN_SIDE;
-				else if (c == 'k') castlingRights |= B_KING_SIDE;
-				else if (c == 'q') castlingRights |= B_QUEEN_SIDE;
-				i++;
-			}
-			c = fen[++i];
-			if (c == '-') enPassantFile = NO_ENPASSANT_FILE;
-			else {
-				enPassantFile = squareCharToInt(c);
-				i += 3;
-			}
-				while (fen[i] != ' ') {
-				c = fen[i];
-				halfMoves = halfMoves * 10 + (c - '0');
-				i++;
-			}
-			i++;
-			while (i < fen.size()) {
-				c = fen[i];
-				fullMoves = fullMoves * 10 + (c - '0');
-				i++;
-			}
-			return;
-		}
-		else if (c == '/') {
-			file = 0;
+
+	for (char c : boardPart) {
+		if (c == '/') {
 			rank--;
+			file = 0;
 			continue;
 		}
-		
-		uint16 intVal = c - '0'; 
-		if (intVal >= 1 && intVal <= 8) {
-			file += intVal;
+		else if (std::isdigit(static_cast<unsigned char>(c))) {
+			file += c - '0';
+			continue;
 		}
 		else {
 			Piece piece = charToPiece(c);
-			square = rank * 8 + file;
+			uint16 square = rank * 8 + file;
 			uint64 squareBit = 1ULL << square;
+
 			bitboards[piece] |= squareBit;
 			bitboards[AllIndex] |= squareBit;
 			board[square] = piece;
-			isWhite(piece) ? bitboards[WhiteIndex] |= squareBit : bitboards[BlackIndex] |= squareBit;
+
+			if (isWhite(piece)) bitboards[WhiteIndex] |= squareBit;
+			else bitboards[BlackIndex] |= squareBit;
+
 			file++;
 		}
-		
 	}
-	return;
+
+	if (!activeColor.empty() && activeColor[0] == 'b') colorToMove = Black;
+	else colorToMove = White;
+
+	castlingRights = 0;
+	if (castling != "-") {
+		for (char c : castling) {
+			switch (c) {
+			case 'K': castlingRights |= W_KING_SIDE; break;
+			case 'Q': castlingRights |= W_QUEEN_SIDE; break;
+			case 'k': castlingRights |= B_KING_SIDE; break;
+			case 'q': castlingRights |= B_QUEEN_SIDE; break;
+			default: break;
+			}
+		}
+	}
+
+	enPassantFile = NO_ENPASSANT_FILE;
+	if (enPassant != "-" && enPassant.size() >= 2) {
+		enPassantFile = squareCharToInt(enPassant[0]);
+	}
+
+	if (!halfMoveStr.empty()) halfMoves = static_cast<uint8>(std::stoi(halfMoveStr));
+	else halfMoves = 0;
+
+	if (!fullMoveStr.empty()) fullMoves = static_cast<uint8>(std::stoi(fullMoveStr));
+	else fullMoves = 0;
 }
 
+
 void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
-	// TODO UPDATE ZOBRIST
+	// TODO: UPDATE ZOBRIST
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();
 	assert(targetSq <= 63 && startSq <= 63);
+	if (pieceAt(startSq) == EMPTY) {
+		printBoard(*this);
+		std::cout << move.moveToString() << " " << std::bitset<4>(move.getFlags()) << " " << move.getFlags() << std::endl;
+		for (MoveInfo move : history) {
+			std::cout << static_cast<int>(move.capturedPiece) << std::endl;
+		}
+	}
 	assert(pieceAt(startSq) != EMPTY);
 
 	MoveInfo moveInfo;
@@ -100,7 +110,7 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 	clearSquare(startSq);
 	if (move.isEnPassant()) {
 		uint16 captureSq = isWhite(piece) ? targetSq - 8 : targetSq + 8;
-		moveInfo.capturedPiece = pieceAt(captureSq); // Is this or checking piece color and setting it to respective pawn
+		moveInfo.capturedPiece = pieceAt(captureSq);
 
 		setPiece(targetSq, piece);
 		clearSquare(captureSq);
@@ -158,7 +168,7 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 		else if ((targetSq == 7 && pieceAt(targetSq) == WRook) || (piece == WRook && startSq == 7)) castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE | W_QUEEN_SIDE);
 		else if (piece == BKing && startSq == 60) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE); 
 		else if ((targetSq == 56 && pieceAt(targetSq) == BRook) || (piece == BRook && startSq == 56)) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE | B_KING_SIDE);
-		else if ((targetSq == 63 && pieceAt(targetSq) == BRook) || (piece == BRook && startSq == 63)) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE | B_KING_SIDE);
+		else if ((targetSq == 63 && pieceAt(targetSq) == BRook) || (piece == BRook && startSq == 63)) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE | B_QUEEN_SIDE);
 		
 		clearSquare(targetSq);
 		setPiece(targetSq, piece);
@@ -298,3 +308,4 @@ uint16 squareCharToInt(char c) {
 	std::cerr << "Invalid file character: " << c << std::endl;
 	return 0;
 }
+
