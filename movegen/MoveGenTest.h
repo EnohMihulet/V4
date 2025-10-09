@@ -21,3 +21,10 @@ void timePsuedoLegalMoves(GameState& gameState, Color color);
 void timeLegalMoves(GameState& gameState, Color color);
 
 void timeMoveFiltering(GameState& gameState, Color color, std::vector<Move> moves=std::vector<Move>());
+
+void testPawnMoveGeneration();
+void testKnightMoveGeneration();
+void testBishopMoveGeneration();
+void testRookMoveGeneration();
+void testQueenMoveGeneration();
+void testKingMoveGeneration();

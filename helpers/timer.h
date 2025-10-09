@@ -1,6 +1,9 @@
 #pragma once
+
 #include <iostream>
 #include <string>
+
+#include "../chess/Common.h"
 
 class ScopedTimer {
 public:
@@ -17,3 +20,23 @@ private:
 	std::string name;
 	std::chrono::high_resolution_clock::time_point start;
 };
+
+static inline uint64 cntvct() {
+	uint64 cval;
+	asm volatile("mrs %0, cntvct_el0" : "=r" (cval));
+	return cval;
+}
+
+static inline uint64 cntfrq() {
+	uint64 freq;
+	asm volatile("mrs %0, cntfrq_el0" : "=r" (freq));
+	return freq;
+}
+
+inline uint64 getTimeElapsed(uint64 startTime) {
+	return (cntvct() - startTime) * 1000 / cntfrq();
+}
+
+inline uint64 getTimeElapsedUS(uint64 startTime) {
+	return (cntvct() - startTime) * 1000000 / cntfrq();
+}

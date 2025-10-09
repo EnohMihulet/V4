@@ -6,13 +6,28 @@
 
 #include "GameState.h"
 #include "../helpers/GameStateHelper.h"
+#include "Common.h"
+#include "../helpers/Zobrist.h"
 
 
 Piece charToPiece(char c); 
 uint16 squareCharToInt(char c); 
+GameState::GameState() {
+	board.fill(EMPTY);
+	bitboards.fill(0ULL);
+	zobristHash = 0ULL;
+	castlingRights = 0;
+	enPassantFile = NO_ENPASSANT_FILE;
+	halfMoves = 0;
+	fullMoves = 1;
+	colorToMove = White;
+}
 
 GameState::GameState(const std::string& fen) {
-	// TODO: ZOBRIST
+	setPosition(fen);
+}
+
+void GameState::setPosition(const std::string& fen) {
 	board.fill(EMPTY);
 	bitboards.fill(0ULL);
 	zobristHash = 0ULL;
@@ -44,6 +59,8 @@ GameState::GameState(const std::string& fen) {
 			uint16 square = rank * 8 + file;
 			uint64 squareBit = 1ULL << square;
 
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + square];
+
 			bitboards[piece] |= squareBit;
 			bitboards[AllIndex] |= squareBit;
 			board[square] = piece;
@@ -55,7 +72,10 @@ GameState::GameState(const std::string& fen) {
 		}
 	}
 
-	if (!activeColor.empty() && activeColor[0] == 'b') colorToMove = Black;
+	if (!activeColor.empty() && activeColor[0] == 'b') {
+		zobristHash ^= BLACK_ZOBRIST_KEY;
+		colorToMove = Black;
+	}
 	else colorToMove = White;
 
 	castlingRights = 0;
@@ -70,32 +90,27 @@ GameState::GameState(const std::string& fen) {
 			}
 		}
 	}
+	zobristHash ^= CASTLING_ZOBRIST_KEYS[castlingRights];
 
 	enPassantFile = NO_ENPASSANT_FILE;
-	if (enPassant != "-" && enPassant.size() >= 2) {
+	if (enPassant != "-") {
 		enPassantFile = squareCharToInt(enPassant[0]);
+		if (isEnPassantCaptureLegal(enPassantFile, colorToMove)) {
+			zobristHash ^= ENPASSANT_ZOBRIST_KEYS[enPassantFile];
+		}
 	}
 
 	if (!halfMoveStr.empty()) halfMoves = static_cast<uint8>(std::stoi(halfMoveStr));
 	else halfMoves = 0;
 
 	if (!fullMoveStr.empty()) fullMoves = static_cast<uint8>(std::stoi(fullMoveStr));
-	else fullMoves = 0;
+	else fullMoves = 1;
 }
 
-
 void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
-	// TODO: UPDATE ZOBRIST
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();
 	assert(targetSq <= 63 && startSq <= 63);
-	if (pieceAt(startSq) == EMPTY) {
-		printBoard(*this);
-		std::cout << move.moveToString() << " " << std::bitset<4>(move.getFlags()) << " " << move.getFlags() << std::endl;
-		for (MoveInfo move : history) {
-			std::cout << static_cast<int>(move.capturedPiece) << std::endl;
-		}
-	}
 	assert(pieceAt(startSq) != EMPTY);
 
 	MoveInfo moveInfo;
@@ -104,77 +119,128 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 	moveInfo.enPassantFile = enPassantFile;
 	moveInfo.zobristHash = zobristHash;
 	moveInfo.capturedPiece = pieceAt(targetSq);
+	#ifdef DEBUG_MODE
+	moveInfo.bitboards = bitboards;
+	#endif
 
 	Piece piece = pieceAt(startSq);
+	bool iswhite = isWhite(piece);
+	uint16 flags = move.getFlags();
 
 	clearSquare(startSq);
-	if (move.isEnPassant()) {
-		uint16 captureSq = isWhite(piece) ? targetSq - 8 : targetSq + 8;
-		moveInfo.capturedPiece = pieceAt(captureSq);
 
-		setPiece(targetSq, piece);
-		clearSquare(captureSq);
-		halfMoves = 0;
-		enPassantFile = NO_ENPASSANT_FILE;
-	}
-	else if (move.isKingSideCastle()) {
-		setPiece(targetSq, piece);
-		if (isWhite(piece)) {
-			castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE);
-			clearSquare(7);
-			setPiece(5, WRook);
+	zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + startSq];
+	zobristHash ^= CASTLING_ZOBRIST_KEYS[castlingRights];
+	if (enPassantFile != NO_ENPASSANT_FILE) zobristHash ^= ENPASSANT_ZOBRIST_KEYS[enPassantFile];
+	enPassantFile = NO_ENPASSANT_FILE;
+
+	if (IS_SIMPLE_MOVE[flags]) [[likely]] {
+		if (move.isCapture()) {
+			halfMoves = 0;
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*pieceAt(targetSq) + targetSq];
 		}
-		else {
-			castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE);
-			clearSquare(63);
-			setPiece(61, BRook);
-		}
-		halfMoves = 0;
-		enPassantFile = NO_ENPASSANT_FILE;
-	}
-	else if (move.isQueenSideCastle()) {
-		setPiece(targetSq, piece);
-		if (isWhite(piece)) {
-			castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE);
-			clearSquare(0);
-			setPiece(3, WRook);
-		}
-		else {
-			castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE);
-			clearSquare(56);
-			setPiece(59, BRook);
-		}
-		halfMoves = 0;
-		enPassantFile = NO_ENPASSANT_FILE;
-	}
-	else if (move.isPromotion()) {
-		clearSquare(targetSq);
-		if (move.isQueenPromotion()) isWhite(piece) ? setPiece(targetSq, WQueen) : setPiece(targetSq, BQueen); 
-		else if (move.isKnightPromotion()) isWhite(piece) ? setPiece(targetSq, WKnight) : setPiece(targetSq, BKnight); 
-		else if (move.isRookPromotion()) isWhite(piece) ? setPiece(targetSq, WRook) : setPiece(targetSq, BRook); 
-		else if (move.isBishopPromotion()) isWhite(piece) ? setPiece(targetSq, WBishop) : setPiece(targetSq, BBishop); 
-		halfMoves = 0;
-		enPassantFile = NO_ENPASSANT_FILE;
-	}
-	else {
-		if (move.isCapture() || piece == WPawn || piece == BPawn) halfMoves = 0;
+		else if (piece == WPawn || piece == BPawn) halfMoves = 0;
 		else halfMoves++;
 
-		if (move.isTwoUpMove()) enPassantFile = targetSq % 8;
-		else enPassantFile = NO_ENPASSANT_FILE;
-
-		if (piece == WKing && startSq == 4) castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE);
-		else if ((targetSq == 0 && pieceAt(targetSq) == WRook) || (piece == WRook && startSq == 0)) castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE | W_KING_SIDE);
-		else if ((targetSq == 7 && pieceAt(targetSq) == WRook) || (piece == WRook && startSq == 7)) castlingRights &= (B_KING_SIDE | B_QUEEN_SIDE | W_QUEEN_SIDE);
-		else if (piece == BKing && startSq == 60) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE); 
-		else if ((targetSq == 56 && pieceAt(targetSq) == BRook) || (piece == BRook && startSq == 56)) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE | B_KING_SIDE);
-		else if ((targetSq == 63 && pieceAt(targetSq) == BRook) || (piece == BRook && startSq == 63)) castlingRights &= (W_KING_SIDE | W_QUEEN_SIDE | B_QUEEN_SIDE);
+		if (move.isTwoUpMove()) {
+			int16 file = targetSq & 7;
+			if (isEnPassantCaptureLegal(file, colorToMove == White ? Black : White)) {
+				zobristHash ^= ENPASSANT_ZOBRIST_KEYS[file];
+				enPassantFile = file;
+			}
+		}
+		
+		castlingRights &= CASTLING_RIGHTS_MASK[startSq];
+		castlingRights &= CASTLING_RIGHTS_MASK[targetSq];
 		
 		clearSquare(targetSq);
 		setPiece(targetSq, piece);
+
+		zobristHash ^= CASTLING_ZOBRIST_KEYS[castlingRights];
+		zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + targetSq];
 	}
-	colorToMove = colorToMove == White ? Black : White;
-	if (colorToMove == White) fullMoves++;
+	else {
+		halfMoves = 0;
+
+		switch (flags) { 
+		case (EN_PASSANT_FLAG): {
+			uint16 captureSq = iswhite ? targetSq - 8 : targetSq + 8;
+			moveInfo.capturedPiece = pieceAt(captureSq);
+
+			setPiece(targetSq, piece);
+			clearSquare(captureSq);
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*moveInfo.capturedPiece + captureSq];
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + targetSq];
+		} break;
+		case (KING_SIDE_FLAG): {
+			setPiece(targetSq, piece);
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + targetSq];
+			iswhite ? makeWKingSide(*this) : makeBKingSide(*this); 
+		} break;
+		case (QUEEN_SIDE_FLAG): {
+			setPiece(targetSq, piece);
+			zobristHash ^= PIECE_ZOBRIST_KEYS[64*piece + targetSq];
+			iswhite ? makeWQueenSide(*this) : makeBQueenSide(*this); 
+		} break;
+		case (QUEEN_PROMOTE_CAPTURE): zobristHash ^= PIECE_ZOBRIST_KEYS[64*pieceAt(targetSq) + targetSq];
+		case (QUEEN_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) {
+				setPiece(targetSq, WQueen);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[WQueen*64 + targetSq];
+			}
+			else {
+				setPiece(targetSq, BQueen);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[BQueen*64 + targetSq];
+			}
+		} break;
+		case (KNIGHT_PROMOTE_CAPTURE): zobristHash ^= PIECE_ZOBRIST_KEYS[64*pieceAt(targetSq) + targetSq];
+		case (KNIGHT_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) {
+				setPiece(targetSq, WKnight);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[WKnight*64 + targetSq];
+			}
+			else {
+				setPiece(targetSq, BKnight);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[BKnight*64 + targetSq];
+			}
+		} break;
+		case (ROOK_PROMOTE_CAPTURE): zobristHash ^= PIECE_ZOBRIST_KEYS[64*pieceAt(targetSq) + targetSq];
+		case (ROOK_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) {
+				setPiece(targetSq, WRook);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[WRook*64 + targetSq];
+			}
+			else {
+				setPiece(targetSq, BRook);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[BRook*64 + targetSq];
+			}
+		} break;
+		case (BISHOP_PROMOTE_CAPTURE): zobristHash ^= PIECE_ZOBRIST_KEYS[64*pieceAt(targetSq) + targetSq]; 
+		case (BISHOP_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) {
+				setPiece(targetSq, WBishop);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[WBishop*64 + targetSq];
+			}
+			else {
+				setPiece(targetSq, BBishop);
+				zobristHash ^= PIECE_ZOBRIST_KEYS[BBishop*64 + targetSq];
+			}
+		} break;
+		default: break;
+		}
+		zobristHash ^= CASTLING_ZOBRIST_KEYS[castlingRights];
+	};
+
+	zobristHash ^= BLACK_ZOBRIST_KEY;
+	if (colorToMove == White) colorToMove = Black;
+	else {
+		colorToMove = White;
+		fullMoves++;
+	}
 	history.push_back(moveInfo);
 }
 
@@ -193,58 +259,48 @@ void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {
 	assert(targetSq <= 63 && startSq <= 63);
 
 	Piece piece = pieceAt(targetSq);
+	bool iswhite = isWhite(piece);
+	uint16 flags = move.getFlags();
 	
-	if (move.isEnPassant()) {
-		uint16 captureSq = isWhite(piece) ? targetSq - 8 : targetSq + 8;
-		clearSquare(targetSq);
-		setPiece(startSq, piece);
-		setPiece(captureSq, moveInfo.capturedPiece);
-	}
-	else if (move.isKingSideCastle()) {
-		if (isWhite(piece)) {
-			clearSquare(5);
-			setPiece(7, WRook);
-			clearSquare(6);
-			setPiece(4, WKing);
-		}
-		else {
-			clearSquare(61);
-			setPiece(63, BRook);
-			clearSquare(62);
-			setPiece(60, BKing);
-		}
-	}
-	else if (move.isQueenSideCastle()) {
-		if (isWhite(piece)) {
-			clearSquare(3);
-			setPiece(0, WRook);
-			clearSquare(2);
-			setPiece(4, WKing);
-		}
-		else {
-			clearSquare(59);
-			setPiece(56, BRook);
-			clearSquare(58);
-			setPiece(60, BKing);
-		}
-	}
-	else if (move.isPromotion()) {
+	if (IS_SIMPLE_MOVE[flags]) [[likely]] {
 		clearSquare(targetSq);
 		if (moveInfo.capturedPiece != EMPTY) setPiece(targetSq, moveInfo.capturedPiece);
-		setPiece(startSq, isWhite(piece) ? WPawn : BPawn);
-	}
+		setPiece(startSq, piece);
+	} 
 	else {
-		clearSquare(targetSq);
-		if (moveInfo.capturedPiece != EMPTY) setPiece(targetSq, moveInfo.capturedPiece);
-		setPiece(startSq, piece);
+		switch(flags) {
+		case (EN_PASSANT_FLAG): {
+			uint16 captureSq = iswhite ? targetSq - 8 : targetSq + 8;
+			clearSquare(targetSq);
+			setPiece(startSq, piece);
+			setPiece(captureSq, moveInfo.capturedPiece);
+		} break;
+		case (KING_SIDE_FLAG): {
+			iswhite ? undoWKingSide(*this) : undoBKingSide(*this);
+		} break;
+		case (QUEEN_SIDE_FLAG): {
+			iswhite ? undoWQueenSide(*this): undoBQueenSide(*this);
+		} break;
+		case (QUEEN_PROMOTE_FLAG): case (QUEEN_PROMOTE_CAPTURE): case (KNIGHT_PROMOTE_FLAG): case (KNIGHT_PROMOTE_CAPTURE): 
+		case (ROOK_PROMOTE_FLAG): case (ROOK_PROMOTE_CAPTURE): case (BISHOP_PROMOTE_FLAG): case (BISHOP_PROMOTE_CAPTURE): {
+			clearSquare(targetSq);
+			if (moveInfo.capturedPiece != EMPTY) setPiece(targetSq, moveInfo.capturedPiece);
+			setPiece(startSq, iswhite ? WPawn : BPawn);
+		} break;
+		default: break;
+		}
 	}
 	if (colorToMove == White) {
-		fullMoves--;
 		colorToMove = Black;
+		fullMoves--;
 	}
-	else {
-		colorToMove = White;
+	else colorToMove = White;
+
+	#ifdef DEBUG_MODE
+	for (size_t i = 0; i < bitboards.size(); i++) {
+		assert(moveInfo.bitboards[i] == bitboards[i]);
 	}
+	#endif
 }
 
 void GameState::setPiece(uint16 square, Piece piece) {
@@ -269,6 +325,22 @@ void GameState::clearSquare(uint16 square) {
 
 Piece GameState::pieceAt(uint16 sq) const {
 	return board[sq];
+}
+
+bool GameState::isEnPassantCaptureLegal(uint16 enPassantFile, Color color) const {
+	if (enPassantFile >= 8) return false;
+
+	const bool whiteToMove = (color == White);
+	const Bitboard pawns = bitboards[whiteToMove ? WPawn : BPawn];
+
+	const uint16 epRank = whiteToMove ? 5 : 2;
+	const Bitboard epTargetSq = 1ULL << (epRank * 8 + enPassantFile);
+
+	Bitboard potentialAttackers;
+	if (whiteToMove) potentialAttackers = ((epTargetSq >> 7) & ~FILE_H) | ((epTargetSq >> 9) & ~FILE_A);
+	else potentialAttackers = ((epTargetSq << 7) & ~FILE_A) | ((epTargetSq << 9) & ~FILE_H);
+
+	return (pawns & potentialAttackers) != 0ULL;
 }
 
 Piece charToPiece(char c) {

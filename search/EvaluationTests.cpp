@@ -4,7 +4,7 @@
 #include "EvaluationTests.h"
 #include "Evaluation.h"
 #include "../chess/GameState.h"
-#include "../helpers/timer.h"
+#include "../helpers/Timer.h"
 #include "../helpers/GameStateHelper.h"
 
 void testIsolatePawn() {

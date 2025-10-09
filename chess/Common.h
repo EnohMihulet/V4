@@ -81,10 +81,9 @@ enum BitboardIndex { AllIndex = 12, WhiteIndex = 13, BlackIndex = 14 };
 enum GameResult { InProgress = 0, WhiteWin = 1, BlackWin = 2, Stalemate = 3, AgreeToDraw = 4, ThreeFoldRepetition = 5, FiftyMoveRule = 6, InsufficientMaterial = 7,
 		WhiteTimeOut = 8, BlackTimeOut = 9, WhiteResign = 10, BlackResign = 11 }; 
 
+constexpr int8 STANDARD_PIECE_VALUES[12] = {1,3,3,5,9,0,1,3,3,5,9,0};
 constexpr uint8 EMPTY = 15;
 constexpr uint8 PIECE_COUNT = 12;
-
-constexpr uint16 NULL_MOVE = 0;
 
 constexpr int16 NEG_INF = INT16_MIN + 1;
 constexpr int16 POS_INF = INT16_MAX;

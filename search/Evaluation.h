@@ -42,6 +42,7 @@ typedef struct EvalComponents {
 } EvalComponents;
 
 int16 evaluate(const GameState& gameState, Color color);
+int16 evaluate(const GameState& gameState);
 
 int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor);
 

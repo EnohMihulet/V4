@@ -36,6 +36,26 @@ int16 evaluate(const GameState& gameState, Color color) {
 	comps.kings = evaluateKing(gameState, mgFactor, egFactor);
 
 	int16 score = comps.pawns + comps.knights + comps.bishops + comps.rooks + comps.queens + comps.kings;
+	return color == White ? score : -score;
+}
+
+int16 evaluate(const GameState& gameState) {
+	int16 mgWeight = calculateMgWeight(gameState);
+	int16 egWeight = TOTAL_PHASE - mgWeight;
+
+	float mgFactor = (float) mgWeight / TOTAL_PHASE;
+	float egFactor = (float) egWeight / TOTAL_PHASE;
+
+
+	EvalComponents comps;
+	comps.pawns = evaluatePawns(gameState, mgFactor, egFactor);
+	comps.knights = evaluateKnights(gameState, mgFactor, egFactor);
+	comps.bishops = evaluateBishops(gameState, mgFactor, egFactor);
+	comps.rooks = evaluateRooks(gameState, mgFactor, egFactor);
+	comps.queens = evaluateQueen(gameState, mgFactor, egFactor);
+	comps.kings = evaluateKing(gameState, mgFactor, egFactor);
+
+	int16 score = comps.pawns + comps.knights + comps.bishops + comps.rooks + comps.queens + comps.kings;
 	return score;
 }
 

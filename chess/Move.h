@@ -1,10 +1,21 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <cassert>
 #include <string>
 
 #include "Common.h"
 
+#ifdef DEBUG_MODE
+typedef struct MoveInfo {
+	uint64 zobristHash;
+	uint8 castlingRights;
+	uint8 enPassantFile;
+	uint8 halfMoves;
+	Piece capturedPiece;
+	std::array<Bitboard, 15> bitboards;
+} MoveInfo;
+#else
 typedef struct MoveInfo {
 	uint64 zobristHash;
 	uint8 castlingRights;
@@ -13,14 +24,22 @@ typedef struct MoveInfo {
 	Piece capturedPiece;
 } MoveInfo;
 
+#endif
+
 typedef struct Move {
 	
 	uint16 val; // Flags - Target Position - Start Position  0000 - 000000 - 000000 
 	
-	Move(uint16 moveValue) { val = moveValue; }
+
+	constexpr Move(uint16 v = 0) : val(v) {  }
 	Move(uint16 startSq, uint16 targetSq, uint16 FLAGS) {
 		assert(startSq <= 63 && targetSq <= 63 && FLAGS <= 15);
 		val = startSq | (targetSq << 6) | (FLAGS << 12);
+	}
+	Move(const std::string& uicMove);
+
+	inline bool isNull() {
+		return val == 0;
 	}
 	
 	inline uint16 getStartSquare() const { return val & START_SQUARE_MASK; }
@@ -45,6 +64,8 @@ typedef struct Move {
 	std::string moveToString() const;
 } Move;
 static_assert(sizeof(Move) == 2);
+
+constexpr Move NULL_MOVE{};
 
 inline std::string squareToString(uint16 sq) {
 	char file = 'a' + (sq % 8);

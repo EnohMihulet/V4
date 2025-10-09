@@ -1,3 +1,5 @@
+#include <iostream>
+#include <ostream>
 #include <vector>
 
 #include "MoveGen.h"
@@ -96,15 +98,43 @@ void filterMoves(GameState& gameState, std::vector<MoveInfo>& history, std::vect
 	std::vector<Move> filteredMoves;
 	filteredMoves.reserve(moves.size());
 
-	for (Move move : moves) {
+	Color enemy = (color == White) ? Black : White;
+	int kingIndex = (color == White) ? WKing : BKing;
+
+	for (const Move& move : moves) {
 		gameState.makeMove(move, history);
 
-		if (!isSquareAttacked(gameState, (color == White) ? gameState.bitboards[WKing] : gameState.bitboards[BKing], color == White ? Black : White)) {
-			filteredMoves.push_back(move); 
+		bool legal = false;
+
+		Bitboard kingPos = gameState.bitboards[kingIndex];
+		bool kingInCheck = isSquareAttacked(gameState, kingPos, enemy);
+
+		if (move.isKingSideCastle()) {
+			constexpr int squaresToCheck[2][2] = {{5, 6}, {61, 62}};
+			const int* path = (color == White) ? squaresToCheck[0] : squaresToCheck[1];
+
+			if (!isSquareAttacked(gameState, 1ULL << path[0], enemy) &&
+				!isSquareAttacked(gameState, 1ULL << path[1], enemy) &&
+				!kingInCheck)
+				legal = true;
 		}
+		else if (move.isQueenSideCastle()) {
+			int squaresToCheck[2][3] = {{3, 2, 1}, {59, 58, 57}};
+			const int* path = (color == White) ? squaresToCheck[0] : squaresToCheck[1];
+
+			if (!isSquareAttacked(gameState, 1ULL << path[0], enemy) &&
+				!isSquareAttacked(gameState, 1ULL << path[1], enemy) &&
+				!isSquareAttacked(gameState, 1ULL << path[2], enemy) &&
+				!kingInCheck)
+				legal = true;
+		}
+		else if (!kingInCheck) legal = true;
+
+		if (legal) filteredMoves.push_back(move);
 
 		gameState.unmakeMove(move, history);
 	}
+
 	moves = std::move(filteredMoves);
 }
 
@@ -181,8 +211,13 @@ void generatePawnMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard rightCaptures = (rightShift > 0 ? (pawns & ~FILE_H) << rightShift : (pawns & ~FILE_H) >> -rightShift) & enemys;
 
 	Bitboard epSquare = (epFileMask & ((color == White) ? RANK_6 : RANK_3));
-	Bitboard leftEnpassant = (pawns & ~FILE_A) << leftShift & epSquare;
-	Bitboard rightEnpassant = (pawns & ~FILE_H) << rightShift & epSquare;
+	Bitboard leftEnpassant;
+	Bitboard rightEnpassant;
+	if (leftShift > 0) leftEnpassant = (pawns & ~FILE_A) << leftShift & epSquare;
+	else leftEnpassant = (pawns & ~FILE_A) >> -leftShift & epSquare;
+
+	if (rightShift > 0) rightEnpassant = (pawns & ~FILE_H) << rightShift & epSquare;
+	else rightEnpassant = (pawns & ~FILE_H) >> -rightShift & epSquare;
 
 	captureLoop(leftCaptures, leftShift, promotionRank);
 	captureLoop(rightCaptures, rightShift, promotionRank);
@@ -204,62 +239,61 @@ void generateKnightMoves(const GameState& gameState, std::vector<Move>& moves, C
 	Bitboard downLeft = ((knights & ~(FILE_A | RANK_1 | RANK_2)) >> 17);
 	Bitboard downRight = ((knights & ~(FILE_H | RANK_1 | RANK_2)) >> 15);
 
-	if (onlyAttacking) {
-		auto captureLoop = [&](Bitboard bb, int16 shift) {
-			while (bb) {
-				uint16 to = __builtin_ctzll(bb);
-				uint16 from = to - shift;
-				moves.push_back(Move(from, to, CAPTURE_FLAG));
-				bb &= bb - 1;
-			}
-		};
-
-		Bitboard leftUpCapture = leftUp & enemies;
-		Bitboard rightUpCapture = rightUp & enemies;
-		Bitboard upLeftCapture = upLeft & enemies;
-		Bitboard upRightCapture = upRight & enemies;
-		Bitboard leftDownCapture = leftDown & enemies;
-		Bitboard rightDownCapture = rightDown & enemies;
-		Bitboard downLeftCapture = downLeft & enemies;
-		Bitboard downRightCapture = downRight & enemies;
-
-		captureLoop(leftUpCapture, 6);
-		captureLoop(rightUpCapture, 10);
-		captureLoop(upLeftCapture, 15);
-		captureLoop(upRightCapture, 17);
-		captureLoop(leftDownCapture, -10);
-		captureLoop(rightDownCapture, -6);
-		captureLoop(downLeftCapture, -17);
-		captureLoop(downRightCapture, -15);
-		return;
-	}
-
-	auto moveLoop = [&](Bitboard bb, int16 shift) {
+	auto captureLoop = [&](Bitboard bb, int16 shift) {
 		while (bb) {
 			uint16 to = __builtin_ctzll(bb);
 			uint16 from = to - shift;
-			moves.push_back(Move(from, to, NO_FLAG));
+			moves.push_back(Move(from, to, CAPTURE_FLAG));
 			bb &= bb - 1;
 		}
 	};
 
-	Bitboard leftUpNoFlag = leftUp & empty;
-	Bitboard rightUpNoFlag = rightUp & empty;
-	Bitboard upLeftNoFlag = upLeft & empty;
-	Bitboard upRightNoFlag = upRight & empty;
-	Bitboard leftDownNoFlag = leftDown & empty;
-	Bitboard rightDownNoFlag = rightDown & empty;
-	Bitboard downLeftNoFlag = downLeft & empty;
-	Bitboard downRightNoFlag = downRight & empty;
+	Bitboard leftUpCapture = leftUp & enemies;
+	Bitboard rightUpCapture = rightUp & enemies;
+	Bitboard upLeftCapture = upLeft & enemies;
+	Bitboard upRightCapture = upRight & enemies;
+	Bitboard leftDownCapture = leftDown & enemies;
+	Bitboard rightDownCapture = rightDown & enemies;
+	Bitboard downLeftCapture = downLeft & enemies;
+	Bitboard downRightCapture = downRight & enemies;
 
-	moveLoop(leftUpNoFlag, 6);
-	moveLoop(rightUpNoFlag, 10);
-	moveLoop(upLeftNoFlag, 15);
-	moveLoop(upRightNoFlag, 17);
-	moveLoop(leftDownNoFlag, -10);
-	moveLoop(rightDownNoFlag, -6);
-	moveLoop(downLeftNoFlag, -17);
-	moveLoop(downRightNoFlag, -15);
+	captureLoop(leftUpCapture, 6);
+	captureLoop(rightUpCapture, 10);
+	captureLoop(upLeftCapture, 15);
+	captureLoop(upRightCapture, 17);
+	captureLoop(leftDownCapture, -10);
+	captureLoop(rightDownCapture, -6);
+	captureLoop(downLeftCapture, -17);
+	captureLoop(downRightCapture, -15);
+
+	if (!onlyAttacking) {
+		auto moveLoop = [&](Bitboard bb, int16 shift) {
+			while (bb) {
+				uint16 to = __builtin_ctzll(bb);
+				uint16 from = to - shift;
+				moves.push_back(Move(from, to, NO_FLAG));
+				bb &= bb - 1;
+			}
+		};
+
+		Bitboard leftUpNoFlag = leftUp & empty;
+		Bitboard rightUpNoFlag = rightUp & empty;
+		Bitboard upLeftNoFlag = upLeft & empty;
+		Bitboard upRightNoFlag = upRight & empty;
+		Bitboard leftDownNoFlag = leftDown & empty;
+		Bitboard rightDownNoFlag = rightDown & empty;
+		Bitboard downLeftNoFlag = downLeft & empty;
+		Bitboard downRightNoFlag = downRight & empty;
+
+		moveLoop(leftUpNoFlag, 6);
+		moveLoop(rightUpNoFlag, 10);
+		moveLoop(upLeftNoFlag, 15);
+		moveLoop(upRightNoFlag, 17);
+		moveLoop(leftDownNoFlag, -10);
+		moveLoop(rightDownNoFlag, -6);
+		moveLoop(downLeftNoFlag, -17);
+		moveLoop(downRightNoFlag, -15);
+	}
 }
 
 void generateBishopMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking) {
@@ -268,7 +302,7 @@ void generateBishopMoves(const GameState& gameState, std::vector<Move>& moves, C
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[4] = {7, 9, -7, -9};
-	constexpr uint64 boundryMasks[4] = {FILE_H, FILE_A, FILE_H, FILE_A};
+	constexpr uint64 boundryMasks[4] = {FILE_H, FILE_A, FILE_A, FILE_H};
 
 	while (bishops) {
 		Bitboard bishop = bishops & -bishops;
@@ -280,7 +314,7 @@ void generateBishopMoves(const GameState& gameState, std::vector<Move>& moves, C
 			Bitboard current = bishop;
 			while (true) {
 				current = direction < 0 ? current >> abs(direction) : current << direction;
-				if ((current & (boundryMask)) != 0) break;
+				if ((current & boundryMask) != 0) break;
 
 				if ((current & empty) != 0) {
 					if (!onlyAttacking) moves.push_back(Move(from, __builtin_ctzll(current), NO_FLAG));
@@ -336,7 +370,7 @@ void generateQueenMoves(const GameState& gameState, std::vector<Move>& moves, Co
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[8] = {1, 8, -1, -8, 7, 9, -7, -9};
-	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_H, FILE_A};
+	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_A, FILE_H};
 
 	while (queens) {
 		Bitboard queen = queens & -queens;
@@ -370,7 +404,7 @@ void generateKingMoves(const GameState& gameState, std::vector<Move>& moves, Col
 	Bitboard enemies = color == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
 
 	constexpr int16 directions[8] = {1, 8, -1, -8, 7, 9, -7, -9};
-	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_H, FILE_A};
+	constexpr uint64 boundryMasks[8] = {FILE_A, RANK_1, FILE_H, RANK_8, FILE_H, FILE_A, FILE_A, FILE_H};
 
 	uint16 from = __builtin_ctzll(king);
 
@@ -386,6 +420,27 @@ void generateKingMoves(const GameState& gameState, std::vector<Move>& moves, Col
 		}
 		else if ((current & enemies) != 0) {
 			moves.push_back(Move(from, __builtin_ctzll(current), CAPTURE_FLAG));
+		}
+	}
+
+	if (color == White) {
+		if ((gameState.castlingRights & W_KING_SIDE) &&
+			(empty & ((1ULL << 5) | (1ULL << 6))) == ((1ULL << 5) | (1ULL << 6))) {
+			moves.push_back(Move(from, 6, KING_SIDE_FLAG));
+		}
+		if ((gameState.castlingRights & W_QUEEN_SIDE) &&
+			(empty & ((1ULL << 1) | (1ULL << 2) | (1ULL << 3))) == ((1ULL << 1) | (1ULL << 2) | (1ULL << 3))) {
+			moves.push_back(Move(from, 2, QUEEN_SIDE_FLAG));
+		}
+	}
+	else {
+		if ((gameState.castlingRights & B_KING_SIDE) &&
+			(empty & ((1ULL << 61) | (1ULL << 62))) == ((1ULL << 61) | (1ULL << 62))) {
+			moves.push_back(Move(from, 62, KING_SIDE_FLAG));
+		}
+		if ((gameState.castlingRights & B_QUEEN_SIDE) &&
+			(empty & ((1ULL << 57) | (1ULL << 58) | (1ULL << 59))) == ((1ULL << 57) | (1ULL << 58) | (1ULL << 59))) {
+			moves.push_back(Move(from, 58, QUEEN_SIDE_FLAG));
 		}
 	}
 }
