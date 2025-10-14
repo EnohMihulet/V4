@@ -29,7 +29,7 @@ struct TranspositionTable {
 	}
 
 	inline uint32 index(uint64 zobrist) const {
-		return zobrist & (TABLE_SIZE - 1);
+		return (zobrist ^ (zobrist >> 32)) & (TABLE_SIZE - 1); // Or just zobrist & (TABLE_SIZE - 1) probably little to no difference
 	}
 
 	inline void storeEntry(const Entry& entry) {

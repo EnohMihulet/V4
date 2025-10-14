@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <iostream>
 #include <string>
 
@@ -40,3 +41,23 @@ inline uint64 getTimeElapsed(uint64 startTime) {
 inline uint64 getTimeElapsedUS(uint64 startTime) {
 	return (cntvct() - startTime) * 1000000 / cntfrq();
 }
+
+inline double uint64ToElapsedUS(uint64 t) {
+    return static_cast<double>(t) * 1e6 / static_cast<double>(cntfrq());
+}
+
+class SearchScopedTimer {
+public:
+	SearchScopedTimer(uint64& time)
+		: time(time), start(cntvct()) {}
+
+	~SearchScopedTimer() {
+		time += cntvct() - start;
+	}
+
+private:
+	uint64& time;
+	uint64 start;
+
+};
+

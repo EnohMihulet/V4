@@ -19,7 +19,7 @@ debug: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 	rm -f $(OBJS)
 
-release: CXXFLAGS += -O2
+release: CXXFLAGS += -O2 
 release: TARGET = engine
 release: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)

@@ -18,7 +18,7 @@ bool isDraw(GameResult result) {
 
 GameResult getGameResult(GameState& gameState, std::vector<MoveInfo>& history, Color color) {
 	std::vector<Move> moves;
-	generateAllMoves(gameState, moves, color, false);
+	generateAllMoves(gameState, moves, color);
 	filterMoves(gameState, history, moves, color);
 	if (isCheck(gameState, color) && moves.size() == 0) return color == White ? BlackWin : WhiteWin;
 	else if (moves.size() == 0) return Stalemate;

@@ -2,3 +2,6 @@
 engine
 engine_debug
 debug_engine
+engines
+.clangd
+

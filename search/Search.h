@@ -14,7 +14,6 @@ typedef struct SearchContext {
 
 Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
 
-#ifdef DEBUG_MODE
 typedef struct SearchStats {
 	uint64 nodes = 0;
 	uint64 prunedNodes = 0;
@@ -32,21 +31,28 @@ typedef struct SearchStats {
 } SearchStats;
 
 typedef struct SearchTimes {
-	double total;
+	uint64 total;
 
-	double evaluation;
-	double transpositionLookUp;
-	double gameStateCheck;
+	uint64 transpositionLookUp;
+	uint64 transpositionInsertion;
 
-	double moveGeneration;
-	double moveFiltering;
-	double moveScoring;
-	double movePicking;
+	uint64 evaluation;
+	uint64 gameResultCheck;
+	uint64 pickContextSetup;
 
-	double moveMaking;
-	double moveUnmaking;
+	uint64 moveGeneration;
+	uint64 moveScoring;
+	uint64 movePicking;
+	uint64 moveVectorCreation;
+
+	uint64 moveMaking;
+	uint64 moveUnmaking;
+
+	uint64 repetitionPush;
+	uint64 repetitionPop;
 } SearchTimes;
 
+#ifdef DEBUG_MODE
 int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining, SearchStats& stats, SearchTimes& times);
 #else

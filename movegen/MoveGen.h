@@ -9,16 +9,22 @@ bool isSquareAttacked(const GameState& gameState, uint64 pos, Color color);
 
 void filterMoves(GameState& gameState, std::vector<MoveInfo>& history, std::vector<Move>& moves, Color color);
 
-void generatePawnMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+Bitboard getPossibleBishopAttackers(uint8 square, Bitboard occupied);
 
-void generateKnightMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+Bitboard getPossibleRookAttackers(uint8 square, Bitboard occupied);
 
-void generateBishopMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+void computeCheckAndPinMasks(const GameState& gameState, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 
-void generateRookMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 
-void generateQueenMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+void generateKnightMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 
-void generateKingMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+void generateBishopMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 
-void generateAllMoves(const GameState& gameState, std::vector<Move>& moves, Color color, bool onlyAttacking);
+void generateRookMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
+
+void generateQueenMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
+
+void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
+
+void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us);

@@ -11,7 +11,7 @@ constexpr int16 BISHOP_PAIR = 40;
 constexpr int16 KNIGHT_PAIR = -10;
 constexpr int16 ROOK_PAIR = 25;
 
-constexpr int16 PASSED_PAWNS[6] = {5, 10, 20, 35, 60, 100};
+constexpr int16 PASSED_PAWNS[7] = {5, 10, 15, 20, 35, 60, 100};
 constexpr int16 CONNECTED_PAST_PAWNS = 30;
 constexpr int16 DOUBLED_PAWNS = -5;
 constexpr int16 ISOLATED_PAWNS = -15;

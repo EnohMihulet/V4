@@ -7,10 +7,10 @@
 void printMovesAndScores(GameState& gameState) {
 	std::vector<Move> moves;
 	std::vector<MoveInfo> history;
-	generateAllMoves(gameState, moves, gameState.colorToMove, false);
+	generateAllMoves(gameState, moves, gameState.colorToMove);
 	filterMoves(gameState, history, moves, gameState.colorToMove);
 
-	PickMoveContext context = {std::vector<uint16>{}, moves[2], moves[3], 0, (uint8)moves.size()};
+	PickMoveContext context = {std::vector<uint16>{(uint8)moves.size()}, moves[2], moves[3], 0, (uint8)moves.size()};
 
 	scoreMoves(gameState, moves, context);
 	for (uint8 i = 0; i < context.size; i++) {
@@ -24,16 +24,17 @@ void printMovesAndScores(GameState& gameState) {
 }
 
 void scoreMoves(GameState& gameState, std::vector<Move>& moves, PickMoveContext& context) {
-	context.scores.reserve(context.size);
 	for (uint8 i = 0; i < context.size; i++) {
 		Move move = moves[i];
 		uint16 score = 0;
 		score += move.val == context.pvMove.val ? PV_MOVE_SCORE : 0; 
 		score += move.val == context.ttMove.val ? TT_MOVE_SCORE : 0;
-		if (move.isCapture()) {
+		if (move.isCapture()) { // BUG: moves that are not captures are being marked as captures
 			Piece movedPiece = gameState.pieceAt(move.getStartSquare());
-			Piece capturedPiece = move.isEnPassant() ? WPawn : gameState.pieceAt(move.getTargetSquare());
-			score += BASE_CAPTURE_SCORE + CAPTURE_SCORE_MULT * (STANDARD_PIECE_VALUES[capturedPiece] - STANDARD_PIECE_VALUES[movedPiece]);
+			Piece capturedPiece = gameState.pieceAt(move.getTargetSquare());
+			if (move.isEnPassant()) capturedPiece = gameState.colorToMove == White ? BPawn : WPawn;
+			// TODO: SHOULD NOT NEED TO DO THIS
+			if (capturedPiece != EMPTY) score += BASE_CAPTURE_SCORE + CAPTURE_SCORE_MULT * (STANDARD_PIECE_VALUES[capturedPiece] - STANDARD_PIECE_VALUES[movedPiece]);
 		}
 		if (move.isPromotion()) {
 			switch (move.getFlags()) {

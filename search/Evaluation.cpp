@@ -413,13 +413,18 @@ int16 evaluateKing(const GameState& gameState, float mgFactor, float egFactor) {
 	int16 bPawnShieldScore = 0;
 
 	Bitboard bb = wKing;
-	uint16 sq = __builtin_ctzll(bb);
+	uint16 sq;
+	if (bb) sq = __builtin_ctzll(bb);
+	else return 0;
+
 	uint16 wFile = sq & 7;
 	uint16 wRank = sq / 8;
 	wPieceTableScore = mgFactor*KING_TABLE_MG[sq] + egFactor*KING_TABLE_EG[sq];
 
 	bb = bKing;
-	sq = __builtin_ctzll(bb);
+	if (bb) sq = __builtin_ctzll(bb);
+	else return 0;
+
 	uint16 bFile = sq & 7;
 	uint16 bRank = sq / 8;
 	bPieceTableScore = mgFactor*KING_TABLE_MG[sq^56] + egFactor*KING_TABLE_EG[sq^56];

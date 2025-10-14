@@ -8,19 +8,11 @@
 
 void printPieceMoves(GameState& gameState, Piece piece);
 
-void printPsuedoLegalMoves(GameState& gameState, Color color);
+void printMoves(GameState& gameState, Color color);
 
-void printLegalMoves(GameState& gameState, Color color);
+void timePieceMoves(GameState& gameState, Piece piece);
 
-void timePsuedoLegalPieceMoves(GameState& gameState, Piece piece);
-
-void timeLegalPieceMoves(GameState& gameState, Piece piece);
-
-void timePsuedoLegalMoves(GameState& gameState, Color color);
-
-void timeLegalMoves(GameState& gameState, Color color);
-
-void timeMoveFiltering(GameState& gameState, Color color, std::vector<Move> moves=std::vector<Move>());
+void timeMoves(GameState& gameState, Color color);
 
 void testPawnMoveGeneration();
 void testKnightMoveGeneration();

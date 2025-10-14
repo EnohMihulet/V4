@@ -6,23 +6,14 @@
 #include "chess/Common.h"
 #include "search/Search.h"
 
-#ifdef DEBUG_MODE
-#include "helpers/GameStateHelper.h"
-#include "movegen/MoveGenTest.h"
-#include "search/MoveSorter.h"
-#endif
 
 int main() {
 	std::ios::sync_with_stdio(false);
 	std::cin.tie(nullptr);
-
+	
 	GameState gameState;
 	std::vector<MoveInfo> history;
 	history.reserve(256);
-	gameState.setPosition((std::string) DEFAULT_FEN_POSITION);
-	Move move = iterativeDeepeningSearch(gameState, history);
-	std::cout << move.moveToString() << std::endl;
-
 
 	std::string command;
 	while (std::getline(std::cin, command)) {

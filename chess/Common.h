@@ -91,6 +91,7 @@ constexpr int16 POS_INF = INT16_MAX;
 constexpr std::string_view DEFAULT_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0";
 
 inline uint16 getPieceType(Piece piece) { return piece % 6; }
+inline Color getPieceColor(Piece piece) { return piece < 6 ? White : Black; } 
 inline bool isWhite(Piece piece) { return piece < 6; }
 inline bool isBlack(Piece piece) { return piece >= 6; }
 
