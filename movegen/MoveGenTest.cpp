@@ -16,16 +16,16 @@ void generatePieceMoves(GameState& gameState, std::vector<Move>& moves, Piece pi
 	switch (piece) {
 	case WPawn: generatePawnMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
 	case BPawn: generatePawnMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
-	case WKnight: generateKnightMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
-	case BKnight: generateKnightMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
+	case WKnight: generateKnightMoves(gameState, moves, White, checkMask, pinnedPieces); break;
+	case BKnight: generateKnightMoves(gameState, moves, Black, checkMask, pinnedPieces); break;
 	case WBishop: generateBishopMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
 	case BBishop: generateBishopMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
 	case WRook: generateRookMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
 	case BRook: generateRookMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
 	case WQueen: generateQueenMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
 	case BQueen: generateQueenMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
-	case WKing: generateKingMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays); break;
-	case BKing: generateKingMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays); break;
+	case WKing: generateKingMoves(gameState, moves, White, checkMask); break;
+	case BKing: generateKingMoves(gameState, moves, Black, checkMask); break;
 	default:
 		std::cerr << "Invalid piece type passed to PrintPieceMoves\n";
 		return;
@@ -35,7 +35,6 @@ void generatePieceMoves(GameState& gameState, std::vector<Move>& moves, Piece pi
 void printPieceMoves(GameState& gameState, Piece piece) {
 	std::vector<Move> moves;
 	std::vector<MoveInfo> history;
-	Color color = isWhite(piece) ? White : Black;
 
 	generatePieceMoves(gameState, moves, piece);
 
@@ -55,11 +54,10 @@ void printPieceMoves(GameState& gameState, Piece piece) {
 	}
 }
 
-void printMoves(GameState& gameState, Color color) {
+void printGeneratedMoves(GameState& gameState, Color color) {
 	std::vector<Move> moves;
 	std::vector<MoveInfo> history;
 	generateAllMoves(gameState, moves, color);
-	filterMoves(gameState, history, moves, color);
 
 	std::string colorStr = (color == White) ? "White" : "Black";
 	std::cout << "Legal Moves for " << colorStr << ":\n";
@@ -98,11 +96,11 @@ void timePieceMoves(GameState& gameState, Piece piece) {
 	} break;
 	case WKnight: {
 		ScopedTimer timer("White knight pseudo-legal move generation");
-		generateKnightMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays);
+		generateKnightMoves(gameState, moves, White, checkMask, pinnedPieces);
 	} break;
 	case BKnight: {
 		ScopedTimer timer("Black knight pseudo-legal move generation");
-		generateKnightMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays);
+		generateKnightMoves(gameState, moves, Black, checkMask, pinnedPieces);
 	} break;
 	case WBishop: {
 		ScopedTimer timer("White bishop pseudo-legal move generation");
@@ -130,11 +128,11 @@ void timePieceMoves(GameState& gameState, Piece piece) {
 	} break;
 	case WKing: {
 		ScopedTimer timer("White king pseudo-legal move generation");
-		generateKingMoves(gameState, moves, White, checkMask, pinnedPieces, pinnedRays);
+		generateKingMoves(gameState, moves, White, checkMask);
 	} break;
 	case BKing: {
 		ScopedTimer timer("Black king pseudo-legal move generation");
-		generateKingMoves(gameState, moves, Black, checkMask, pinnedPieces, pinnedRays);
+		generateKingMoves(gameState, moves, Black, checkMask);
 	} break;
 	default:
 		std::cerr << "Invalid piece type passed to TimePsuedoLegalPieceMoves\n";

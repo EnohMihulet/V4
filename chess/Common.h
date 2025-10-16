@@ -20,7 +20,7 @@ constexpr uint16 CAPTURE_FLAG =           0b0001;
 constexpr uint16 EN_PASSANT_FLAG =        0b0011;
 constexpr uint16 PAWN_TWO_UP_FLAG  =      0b0010;
 constexpr uint16 KING_SIDE_FLAG =         0b0100;
-constexpr uint16 QUEEN_SIDE_FLAG =	  0b0101;
+constexpr uint16 QUEEN_SIDE_FLAG =	  0b0110;
 
 constexpr uint16 QUEEN_PROMOTE_FLAG =     0b1110;
 constexpr uint16 KNIGHT_PROMOTE_FLAG =    0b1000;
@@ -63,6 +63,9 @@ constexpr uint64 RANK_8 = 0xFF00000000000000ULL;
 constexpr uint64 FILES[] = {FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H};
 constexpr uint64 RANKS[] = {RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
 
+constexpr uint64 LIGHT_SQUARES = 0x55AA55AA55AA55AA;
+constexpr uint64 DARK_SQUARES = ~LIGHT_SQUARES;
+
 enum SQ {
 	A1, B1, C1, D1, E1, F1, G1, H1,
 	A2, B2, C2, D2, E2, F2, G2, H2,
@@ -88,7 +91,7 @@ constexpr uint8 PIECE_COUNT = 12;
 constexpr int16 NEG_INF = INT16_MIN + 1;
 constexpr int16 POS_INF = INT16_MAX;
 
-constexpr std::string_view DEFAULT_FEN_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0";
+static constexpr std::string_view DEFAULT_FEN_POSITION("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0");
 
 inline uint16 getPieceType(Piece piece) { return piece % 6; }
 inline Color getPieceColor(Piece piece) { return piece < 6 ? White : Black; } 

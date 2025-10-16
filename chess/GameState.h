@@ -29,8 +29,6 @@ typedef struct GameState {
 	void clearSquare(uint16 square);
 	Piece pieceAt(uint16 sq) const;
 
-	bool isCheck(Color color);
-	GameResult getGameResult(std::vector<MoveInfo>& history, Color color);
 	bool isEnPassantCaptureLegal(uint16 enPassantFile, Color color) const;
 } GameState;
 

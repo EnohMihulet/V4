@@ -246,8 +246,11 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 		times.gameResultCheck += cntvct() - g_StartTime;
 		return 0;
 	}
+	if (isInsufficientMaterial(gameState)) {
+		times.gameResultCheck += cntvct() - g_StartTime;
+		return 0;
+	}
 	if (movesSize == 0) {
-		// TODO: Insufficient material
 		Bitboard kingPos = gameState.colorToMove == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
 		bool isCheck = isSquareAttacked(gameState, kingPos, gameState.colorToMove == White ? Black : White);
 		if (isCheck) {
@@ -353,11 +356,9 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 	uint8 movesSize = moves.size();
 
 	if (gameState.halfMoves >= 50) return 0;
-
 	if (g_SearchRepetitionStack.isRepeated(gameState.zobristHash)) return 0;
-	
+	if (isInsufficientMaterial(gameState)) return 0;
 	if (movesSize == 0) {
-		// TODO: Insufficient material
 		Bitboard kingPos = gameState.colorToMove == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
 		bool isCheck = isSquareAttacked(gameState, kingPos, gameState.colorToMove == White ? Black : White);
 		if (isCheck) {

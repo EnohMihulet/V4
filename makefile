@@ -8,6 +8,7 @@ OBJS = main.o \
 	movegen/MoveGen.o \
 	movegen/MoveGenTest.o \
 	helpers/GameStateHelper.o \
+	helpers/Perft.o \
 	search/Evaluation.o \
 	search/EvaluationTests.o \
 	search/MoveSorter.o \
@@ -17,7 +18,7 @@ debug: CXXFLAGS += -g -DDEBUG_MODE
 debug: TARGET = engine_debug
 debug: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
-	rm -f $(OBJS)
+# rm -f $(OBJS)
 
 release: CXXFLAGS += -O2 
 release: TARGET = engine

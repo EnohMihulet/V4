@@ -293,7 +293,6 @@ void testAllMoves(GameState state) {
 	std::vector<Move> moves;
 	moves.reserve(64);
 	generateAllMoves(state, moves, state.colorToMove);
-	filterMoves(state, history, moves, state.colorToMove);
 
 	int passed = 0, failed = 0;
 

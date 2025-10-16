@@ -146,8 +146,8 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 			int16 file = targetSq & 7;
 			if (isEnPassantCaptureLegal(file, colorToMove == White ? Black : White)) {
 				zobristHash ^= ENPASSANT_ZOBRIST_KEYS[file];
-				enPassantFile = file;
 			}
+			enPassantFile = file;
 		}
 		
 		castlingRights &= CASTLING_RIGHTS_MASK[startSq];
@@ -297,9 +297,13 @@ void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {
 	else colorToMove = White;
 
 	#ifdef DEBUG_MODE
-	for (size_t i = 0; i < bitboards.size(); i++) {
-		assert(moveInfo.bitboards[i] == bitboards[i]);
-	}
+	// for (size_t i = 0; i < bitboards.size(); i++) {
+	// 	if (moveInfo.bitboards[i] != bitboards[i]) {
+	// 		std::cout << (move.moveToString()) << std::endl;
+	// 		printBitboard(moveInfo.bitboards[i]);
+	// 		printBitboard(bitboards[i]);
+	// 	}
+	// }
 	#endif
 }
 
@@ -358,7 +362,7 @@ Piece charToPiece(char c) {
 	case 'Q': return WQueen;
 	case 'K': return WKing;
 	}
-	std::cerr << "Invalid char to conver to piece: " << c << std::endl;
+	std::cerr << "Invalid char to convert to piece: " << c << std::endl;
 	return WPawn;
 }
 

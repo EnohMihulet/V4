@@ -8,7 +8,6 @@ void printMovesAndScores(GameState& gameState) {
 	std::vector<Move> moves;
 	std::vector<MoveInfo> history;
 	generateAllMoves(gameState, moves, gameState.colorToMove);
-	filterMoves(gameState, history, moves, gameState.colorToMove);
 
 	PickMoveContext context = {std::vector<uint16>{(uint8)moves.size()}, moves[2], moves[3], 0, (uint8)moves.size()};
 

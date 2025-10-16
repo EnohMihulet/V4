@@ -6,14 +6,20 @@
 #include "chess/Common.h"
 #include "search/Search.h"
 
+#include "helpers/GameStateHelper.h"
+#include "movegen/MoveGenTest.h"
+#include "helpers/Perft.h"
+#include "movegen/PrecomputedTables.h"
+
 
 int main() {
 	std::ios::sync_with_stdio(false);
 	std::cin.tie(nullptr);
-	
+
 	GameState gameState;
 	std::vector<MoveInfo> history;
 	history.reserve(256);
+
 
 	std::string command;
 	while (std::getline(std::cin, command)) {
@@ -66,9 +72,7 @@ int main() {
 			int16 depth = 5;
 			std::istringstream ss(command);
 			std::string token;
-			while (ss >> token) {
-				if (token == "depth") ss >> depth;
-			}
+			while (ss >> token) if (token == "depth") ss >> depth;
 
 			Move bestMove = iterativeDeepeningSearch(gameState, history);
 			std::cout << "bestmove " << bestMove.moveToString() << std::endl;

@@ -11,7 +11,7 @@ engine_1:
 engine_2:
 	New move generation (no filtering)
 	Precomputed tables
-	
+
 	AFTER 5 SECONDS: 
 	Depth 8
 	  Best move: b1c3
@@ -55,3 +55,8 @@ engine_2:
 	  Sum (tracked): 4,902,194.00μs
 	  Sum (tracked): 4,902.19ms
 	──────────────────────────────────────────────────────────
+
+engine_3
+	Insufficient material draw added
+	Change repetition table push/pop search to go from end to start
+

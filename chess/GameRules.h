@@ -14,7 +14,8 @@ typedef struct RepetitionTable {
 
 	void push(uint64 key) {
 		assert(size < 512);
-		for (uint16 i = 0; i < size; i++) {
+		if (size == 0) return;
+		for (uint16 i = size - 1; i >= 0; i--) {
 			if (keys[i] == key) {
 				counts[i]++;
 				return;
@@ -26,7 +27,8 @@ typedef struct RepetitionTable {
 	}
 
 	void pop(uint64 key) {
-		for (uint16 i = 0; i < size; i++) {
+		if (size == 0) return;
+		for (uint16 i = size - 1; i >= 0; i--) {
 			if (keys[i] == key) {
 				if (--counts[i] == 0) {
 					keys[i] = keys[size-1];
@@ -47,8 +49,4 @@ typedef struct RepetitionTable {
 
 } RepetitionTable;
 
-bool isCheck(const GameState& gameState, Color color);
-bool isDraw(GameResult result);
-
-GameResult getGameResult(GameState& gameState, std::vector<MoveInfo>& history, Color color);
-
+bool isInsufficientMaterial(const GameState& gameState);

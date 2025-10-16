@@ -8,7 +8,7 @@
 
 void printPieceMoves(GameState& gameState, Piece piece);
 
-void printMoves(GameState& gameState, Color color);
+void printGeneratedMoves(GameState& gameState, Color color);
 
 void timePieceMoves(GameState& gameState, Piece piece);
 

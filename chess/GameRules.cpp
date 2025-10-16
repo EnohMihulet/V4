@@ -3,26 +3,27 @@
 #include "GameRules.h"
 #include "Common.h"
 
-bool isCheck(const GameState& gameState, Color color) {
-	if (isSquareAttacked(gameState, (color == White) ? gameState.bitboards[WKing] : gameState.bitboards[BKing], color)) return true;
+bool isInsufficientMaterial(const GameState& gameState) {
+	if (__builtin_popcountll(gameState.bitboards[WPawn]) || __builtin_popcountll(gameState.bitboards[WRook]) || __builtin_popcountll(gameState.bitboards[WQueen])) return false;
+	if (__builtin_popcountll(gameState.bitboards[BPawn]) || __builtin_popcountll(gameState.bitboards[BRook]) || __builtin_popcountll(gameState.bitboards[BQueen])) return false;
 
-	return false;
+	Bitboard wBishop = gameState.bitboards[WBishop];
+	Bitboard bBishop = gameState.bitboards[BBishop];
+
+	uint8 wBishopCount = __builtin_popcountll(wBishop);
+	uint8 bBishopCount = __builtin_popcountll(bBishop);
+	uint8 wKnightCount = __builtin_popcountll(gameState.bitboards[WKnight]);
+	uint8 bKnightCount = __builtin_popcountll(gameState.bitboards[BKnight]);
+
+	if ((wBishopCount >= 1 && wKnightCount >= 1) || (bBishopCount >= 1 && bKnightCount >= 1)) return false;
+	if (wKnightCount >= 3 || bKnightCount >= 3) return false;
+
+	uint8 wLSBishopCount = __builtin_popcountll(wBishop & LIGHT_SQUARES);
+	uint8 wDSBishopCount = __builtin_popcountll(wBishop & DARK_SQUARES);
+	uint8 bLSBishopCount = __builtin_popcountll(bBishop & LIGHT_SQUARES);
+	uint8 bDSBishopCount = __builtin_popcountll(bBishop & DARK_SQUARES);
+
+	if ((wLSBishopCount >= 1 && wDSBishopCount >= 1) || (bLSBishopCount >= 1 && bDSBishopCount >= 1)) return false;
+
+	return true;
 }
-
-bool isDraw(GameResult result) {
-	switch (result) {
-		case Stalemate: case FiftyMoveRule: case AgreeToDraw: case ThreeFoldRepetition: case InsufficientMaterial: return true;
-		default: return false;
-	}
-}
-
-GameResult getGameResult(GameState& gameState, std::vector<MoveInfo>& history, Color color) {
-	std::vector<Move> moves;
-	generateAllMoves(gameState, moves, color);
-	filterMoves(gameState, history, moves, color);
-	if (isCheck(gameState, color) && moves.size() == 0) return color == White ? BlackWin : WhiteWin;
-	else if (moves.size() == 0) return Stalemate;
-	else if (gameState.halfMoves >= 50) return FiftyMoveRule;
-	return InProgress;
-}
-
