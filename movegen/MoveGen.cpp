@@ -355,7 +355,7 @@ void generateKnightMoves(GameState& gameState, std::vector<Move>& moves, Color u
 	Bitboard empty = ~gameState.bitboards[AllIndex];
 
 	Bitboard enemies = (us == White) ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
-	Bitboard knights = (us == White) ? gameState.bitboards[WKnight]	 : gameState.bitboards[BKnight];
+	Bitboard knights = (us == White) ? gameState.bitboards[WKnight] : gameState.bitboards[BKnight];
 
 	while (knights) {
 		const uint8 from = __builtin_ctzll(knights);
@@ -626,6 +626,25 @@ void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us) 
 	Bitboard pinnedPieces = 0;
 	Bitboard checkMask = 0;
 	std::array<Bitboard, 64> pinnedRays;
+	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
+
+	if (checkMask == 0ULL) {
+		generateKingMoves(gameState, moves, us, checkMask);
+		return;
+	}
+
+	generatePawnMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKnightMoves(gameState, moves, us, checkMask, pinnedPieces);
+	generateBishopMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateRookMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateQueenMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKingMoves(gameState, moves, us, checkMask);
+}
+
+void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+	pinnedPieces = 0;
+	checkMask = 0;
+	pinnedRays.fill(0);
 	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
 
 	if (checkMask == 0ULL) {

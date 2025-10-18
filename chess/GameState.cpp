@@ -347,41 +347,45 @@ bool GameState::isEnPassantCaptureLegal(uint16 enPassantFile, Color color) const
 	return (pawns & potentialAttackers) != 0ULL;
 }
 
-Piece charToPiece(char c) {
-	switch (c) {
-	case 'p': return BPawn;
-	case 'n': return BKnight;
-	case 'b': return BBishop;
-	case 'r': return BRook;
-	case 'q': return BQueen;
-	case 'k': return BKing;
-	case 'P': return WPawn;
-	case 'N': return WKnight;
-	case 'B': return WBishop;
-	case 'R': return WRook;
-	case 'Q': return WQueen;
-	case 'K': return WKing;
-	}
-	std::cerr << "Invalid char to convert to piece: " << c << std::endl;
-	return WPawn;
-}
 
-uint16 squareCharToInt(char c) {
-	switch (c) {
-		case 'a': return 0;
-		case 'b': return 1;
-		case 'c': return 2;
-		case 'd': return 3;
-		case 'e': return 4;
-		case 'f': return 5;
-		case 'g': return 6;
-		case 'h': return 7;
+std::string GameState::toFenString() {
+	std::ostringstream fen;
+	for (int rank = 7; rank >= 0; --rank) {
+		int emptyCount = 0;
+		for (int file = 0; file < 8; ++file) {
+			const int sq = rank * 8 + file;
+			const Piece p = board[sq];
+			const char c = pieceToChar(p);
+			if (c == '\0') {
+				++emptyCount;
+			} else {
+				if (emptyCount) { fen << emptyCount; emptyCount = 0; }
+				fen << c;
+			}
+		}
+		if (emptyCount) fen << emptyCount;
+		if (rank) fen << '/';
 	}
-	int16 x = c - '0';
-	if (x >= 0 && x < 8) {
-		return x;
-	}
-	std::cerr << "Invalid file character: " << c << std::endl;
-	return 0;
-}
 
+	fen << ' ' << (colorToMove == Color::White ? 'w' : 'b') << ' ';
+
+	bool anyCastle = false;
+	if (castlingRights & W_KING_SIDE) { fen << 'K'; anyCastle = true; }
+	if (castlingRights & W_QUEEN_SIDE) { fen << 'Q'; anyCastle = true; }
+	if (castlingRights & B_KING_SIDE) { fen << 'k'; anyCastle = true; }
+	if (castlingRights & B_QUEEN_SIDE) { fen << 'q'; anyCastle = true; }
+	if (!anyCastle) fen << '-';
+	fen << ' ';
+
+	if (enPassantFile < 8 && isEnPassantCaptureLegal(enPassantFile, colorToMove)) {
+		const char fileChar = static_cast<char>('a' + enPassantFile);
+		const int rankNum = (colorToMove == Color::White) ? 6 : 3;
+		fen << fileChar << rankNum;
+	} else {
+		fen << '-';
+	}
+
+	fen << ' ' << static_cast<unsigned>(halfMoves) << ' ' << static_cast<unsigned>(fullMoves);
+
+	return fen.str();
+}

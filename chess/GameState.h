@@ -30,9 +30,8 @@ typedef struct GameState {
 	Piece pieceAt(uint16 sq) const;
 
 	bool isEnPassantCaptureLegal(uint16 enPassantFile, Color color) const;
+	std::string toFenString();
 } GameState;
-
-
 
 constexpr std::array<uint8, 64> makeCastlingRightsMask() {
 	std::array<uint8, 64> t{};

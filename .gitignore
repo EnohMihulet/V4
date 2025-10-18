@@ -5,4 +5,7 @@ debug_engine
 engines
 .clangd
 todo.txt
+compile_commands.json
+.cache
+/obj/
 

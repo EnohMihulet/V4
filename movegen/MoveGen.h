@@ -26,3 +26,5 @@ void generateQueenMoves(GameState& gameState, std::vector<Move>& moves, Color us
 void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask);
 
 void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us);
+
+void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);

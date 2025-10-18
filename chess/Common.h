@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
+#include <ostream>
 #include <string_view>
 
 typedef int8_t int8;
@@ -98,4 +100,59 @@ inline Color getPieceColor(Piece piece) { return piece < 6 ? White : Black; }
 inline bool isWhite(Piece piece) { return piece < 6; }
 inline bool isBlack(Piece piece) { return piece >= 6; }
 
+static inline Piece charToPiece(char c) {
+	switch (c) {
+	case 'p': return BPawn;
+	case 'n': return BKnight;
+	case 'b': return BBishop;
+	case 'r': return BRook;
+	case 'q': return BQueen;
+	case 'k': return BKing;
+	case 'P': return WPawn;
+	case 'N': return WKnight;
+	case 'B': return WBishop;
+	case 'R': return WRook;
+	case 'Q': return WQueen;
+	case 'K': return WKing;
+	}
+	std::cerr << "Invalid char to convert to piece: " << c << std::endl;
+	return WPawn;
+}
 
+static inline uint16 squareCharToInt(char c) {
+	switch (c) {
+		case 'a': return 0;
+		case 'b': return 1;
+		case 'c': return 2;
+		case 'd': return 3;
+		case 'e': return 4;
+		case 'f': return 5;
+		case 'g': return 6;
+		case 'h': return 7;
+	}
+	int16 x = c - '0';
+	if (x >= 0 && x < 8) {
+		return x;
+	}
+	std::cerr << "Invalid file character: " << c << std::endl;
+	return 0;
+}
+
+static inline char pieceToChar(Piece p) {
+	switch (p) {
+		case WPawn: return 'p' - 32;
+		case WKnight: return 'n' - 32;
+		case WBishop: return 'b' - 32;
+		case WRook: return 'r' - 32;
+		case WQueen: return 'q' - 32;
+		case WKing: return 'k' - 32;
+		case BPawn: return 'p';
+		case BKnight: return 'n';
+		case BBishop: return 'b';
+		case BRook: return 'r';
+		case BQueen: return 'q';
+		case BKing: return 'k';
+		case EMPTY:return '\0';
+	}
+	return '\0';
+}
