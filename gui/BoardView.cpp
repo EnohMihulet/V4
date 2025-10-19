@@ -57,11 +57,12 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 				else {
 					for (Move& move : guiState.selectedPieceMoves) {
 						if (index == move.getTargetSquare() && guiState.selectedPieceSq == move.getStartSquare()) {
-							guiState.selectedPieceMoves.clear();
-							guiState.selectedPieceSq = -1;
-
 							gameState.makeMove(move, guiState.history);
 							guiState.movesMade.push_back(move);
+
+							guiState.selectedPieceSq = -1;
+							guiState.selectedPieceMoves.clear();
+							guiState.allMoves.clear();
 
 							generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
 						}
@@ -74,19 +75,40 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 				if (guiState.selectedPieceSq == -1) break;
 				if (move.getTargetSquare() == index) color = MOVE_HIGHLIGHT_COLOR;
 			}
+
 			if (guiState.showCheckMask) {
 				if (1ULL << index & guiState.checkMask) color = CHECK_MASK_COLOR;
 			}
 			if (guiState.showPinnedPieces) {
 				if (1ULL << index & guiState.pinnedPieces) color = PINNED_PIECES_COLOR;
 			}
-			if (guiState.showPinnedRays) {
-				if (guiState.pinnedRays[index] != 0 && (guiState.pinnedRays[index] & 1ULL << index)) color = PINNED_RAYS_COLOR;
-			}
-
 
 			drawList->AddRectFilled(sqMin, sqMax, color);
+		}
+	}
 
+	if (guiState.showPinnedRays) {
+		for (uint8 i = 0; i < 64; i++) {
+			if (guiState.pinnedRays[i] != 0) {
+				Bitboard rayBB = guiState.pinnedRays[i];
+				while (rayBB) {
+					uint8 sq = __builtin_ctzll(rayBB);
+					ImVec2 sqMin = ImVec2(windowPos.x + (sq % 8) * squareSize, headerMax.y + (numRows - 1 - (sq / 8)) * squareSize);
+					ImVec2 sqMax = ImVec2(sqMin.x + squareSize, sqMin.y + squareSize);
+
+					drawList->AddRectFilled(sqMin, sqMax, PINNED_RAYS_COLOR);
+					rayBB &= rayBB - 1;
+				}
+			}
+		}
+		
+	}
+
+	for (int16 row = 0; row < numRows; row++) {
+		for (int16 col = 0; col < numCols; col++) {
+
+			ImVec2 sqMin = ImVec2(windowPos.x + col * squareSize, headerMax.y + (numRows - 1 - row) * squareSize);
+			uint8 index = (row * numCols + col);
 
 			const char ch = pieceToChar(gameState.board[index]);
 			if (ch != '\0') {
@@ -106,6 +128,45 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 				drawList->AddText(font, fsize, text_pos, piece_color, pieceChar);
 			}
 		}
+	}
+	
+	ImVec2 boardMin = ImVec2(windowPos.x, headerMax.y);
+	ImVec2 boardMax = ImVec2(windowPos.x + squareSize * numCols, headerMax.y + boardHeight);
+
+	float borderThickness = 2.0f;
+	drawList->AddRect(boardMin, boardMax, BLACK_COLOR, 0.0f, 0, borderThickness);
+
+	ImFont* font = ImGui::GetFont();
+	float base = ImGui::GetFontSize();
+	float labelSize = base * 0.9f; // subtle, readable
+
+	for (int16 col = 0; col < numCols; ++col) {
+		char fileChar[2] = { static_cast<char>('a' + col), '\0' };
+
+		ImVec2 sqCenterBottom = ImVec2( windowPos.x + col * squareSize + squareSize * 0.5f, headerMax.y + boardHeight + 2.0f);
+		ImVec2 fileSize = font->CalcTextSizeA(labelSize, FLT_MAX, 0.0f, fileChar);
+		ImVec2 filePosBottom = ImVec2(sqCenterBottom.x - fileSize.x * 0.5f, sqCenterBottom.y);
+
+		ImVec2 sqCenterTop = ImVec2(windowPos.x + col * squareSize + squareSize * 0.5f, headerMax.y - fileSize.y - 2.0f);
+		ImVec2 filePosTop = ImVec2(sqCenterTop.x - fileSize.x * 0.5f, sqCenterTop.y);
+
+		drawList->AddText(font, labelSize, filePosBottom, WHITE_COLOR, fileChar);
+		drawList->AddText(font, labelSize, filePosTop, WHITE_COLOR, fileChar);
+	}
+
+	for (int16 row = 0; row < numRows; ++row) {
+		char rankChar[2] = { static_cast<char>('1' + row), '\0' };
+
+		float yTopOfRow = headerMax.y + (numRows - 1 - row) * squareSize;
+		float yCenter = yTopOfRow + squareSize * 0.5f;
+
+		ImVec2 rankSize = font->CalcTextSizeA(labelSize, FLT_MAX, 0.0f, rankChar);
+
+		ImVec2 leftPos = ImVec2(boardMin.x - rankSize.x - 4.0f, yCenter - rankSize.y * 0.5f);
+		ImVec2 rightPos = ImVec2(boardMax.x + 4.0f, yCenter - rankSize.y * 0.5f);
+
+		drawList->AddText(font, labelSize, leftPos, WHITE_COLOR, rankChar);
+		drawList->AddText(font, labelSize, rightPos, WHITE_COLOR, rankChar);
 	}
 	ImGui::End();
 }
@@ -170,10 +231,92 @@ void drawToggles(GuiState& guiState) {
 }
 
 void drawUndoButton(GameState& gameState, GuiState& guiState) {
-
 	if (ImGui::Button("Undo")) {
 		if (guiState.movesMade.size() == 0) return;
 		Move move = guiState.movesMade[guiState.movesMade.size() - 1];
 		gameState.unmakeMove(move, guiState.history);
+		guiState.movesMade.pop_back();
+		guiState.allMoves.clear();
+		generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
 	}
+}
+
+void drawSelectPinnedRayIndex(GuiState& guiState) {
+	ImGui::Begin("Pinned ray index");
+
+	if (ImGui::BeginTable("Pinned ray index", 8, ImGuiTableFlags_SizingFixedFit)) {
+
+		for (int row = 0; row < 8; ++row) {
+			ImGui::TableNextRow();
+			for (int col = 0; col < 8; ++col) {
+				int v = (7 - row) * 8 + col;
+
+				ImGui::TableSetColumnIndex(col);
+				ImGui::PushID(v);
+
+				ImGuiSelectableFlags selectFlags = ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_DontClosePopups;
+				bool pressed = ImGui::Selectable(std::to_string(v).c_str(), guiState.selectedRayIndex == v, selectFlags, ImVec2(12, 12));
+				ImGui::PopID();
+
+				if (pressed) guiState.selectedRayIndex = v;
+			}
+		}
+		ImGui::EndTable();
+	}
+
+	ImGui::End();
+}
+
+void drawPinnedRayBitboard(GuiState& guiState) {
+	ImGui::Begin("Pinned ray viewer");
+
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	ImVec2 windowPos = ImGui::GetWindowPos();
+
+	const float squareSize = 40.0f;
+	const int16 numColumns = 8;
+	const int16 numRows = 8;
+
+	const ImU32 gridColor = ImGui::GetColorU32(ImGuiCol_Border);
+	const ImU32 frameColor = ImGui::GetColorU32(ImGuiCol_BorderShadow);
+	const float gridThickness = 1.0f;
+	const float frameThickness = 2.0f;
+
+	ImVec2 headerMin = ImVec2(windowPos.x, windowPos.y);
+	ImVec2 headerMax = ImVec2(windowPos.x + squareSize * numColumns, windowPos.y + 20);
+
+	Bitboard bb = guiState.pinnedRays[guiState.selectedRayIndex];
+
+	ImVec2 boardMin = ImVec2(windowPos.x, headerMax.y);
+	ImVec2 boardMax = ImVec2(windowPos.x + squareSize * numColumns, headerMax.y + squareSize * numRows);
+	int16 boardHeight = numRows * squareSize;
+
+	drawList->AddRectFilled(boardMin, boardMax, ImGui::GetColorU32(ImGuiCol_WindowBg));
+
+	for (int16 row = 0; row < numRows; row++) {
+		for (int16 col = 0; col < numColumns; col++) {
+			ImVec2 sqMin = ImVec2(windowPos.x + col * squareSize, (boardHeight + headerMax.y) - row * squareSize);
+			ImVec2 sqMax = ImVec2(windowPos.x + (col + 1) * squareSize, (boardHeight + headerMax.y) - (row + 1) * squareSize);
+			uint8 index = (row * 8 + col);
+
+			ImU32 fill = (bb & (1ULL << index)) ? BLACK_COLOR : WHITE_COLOR;
+
+			drawList->AddRectFilled(sqMin, sqMax, fill);
+			drawList->AddRect(sqMin, sqMax, gridColor, 0.0f, 0, gridThickness);
+		}
+	}
+
+	drawList->AddRect(boardMin, boardMax, frameColor, 0.0f, 0, frameThickness);
+
+	ImGui::End();
+}
+
+void drawIsSquareAttacked(GameState& gameState) {
+	static int32 sq = 0;
+	ImGui::Begin("Is Square Attacked?");
+	ImGui::InputInt("index", &sq);
+	Color them = gameState.colorToMove == White ? Black : White;
+	ImGui::Text(isSquareAttacked(gameState, 1ULL << sq, them) ? "TRUE" : "FALSE");
+	ImGui::End();
+	
 }

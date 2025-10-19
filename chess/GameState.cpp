@@ -111,6 +111,7 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();
 	assert(targetSq <= 63 && startSq <= 63);
+	if (pieceAt(startSq) == EMPTY) std::cout << move.moveToString() << std::endl;
 	assert(pieceAt(startSq) != EMPTY);
 
 	MoveInfo moveInfo;
@@ -253,6 +254,7 @@ void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {
 	halfMoves = moveInfo.halfMoves;
 	castlingRights = moveInfo.castlingRights;
 	enPassantFile = moveInfo.enPassantFile;
+
 
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();

@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 
 #include <SDL.h>
 
@@ -17,3 +16,9 @@ void drawBitboards(GameState &gameState, GuiState& guiState);
 void drawToggles(GuiState& guiState);
 
 void drawUndoButton(GameState& gameState, GuiState& guiState);
+
+void drawSelectPinnedRayIndex(GuiState& guiState);
+
+void drawPinnedRayBitboard(GuiState& guiState);
+
+void drawIsSquareAttacked(GameState& gameState);

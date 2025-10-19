@@ -3,6 +3,7 @@
 
 #include "MoveGen.h"
 
+#include "Common.h"
 #include "PrecomputedTables.h"
 #include "../helpers/GameStateHelper.h"
 
@@ -17,7 +18,6 @@ bool isSquareAttacked(const GameState& gameState, uint64 pos, Color them) {
 	if (PAWN_ATTACK_TABLE[us][sq] & pawns) return true; // Should be us because the sq is the attacked sq is not the pawns square so direction has to be inverted
 
 	Bitboard knights = (them == White) ? gameState.bitboards[WKnight] : gameState.bitboards[BKnight];
-
 	if (KNIGHT_ATTACK_TABLE[sq] & knights) return true;
 
 	const Bitboard kings = (them == White) ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
@@ -40,7 +40,7 @@ bool isSquareAttacked(const GameState& gameState, uint64 pos, Color them) {
 		Piece attackerPiece = gameState.pieceAt(attackerSq);
 		if (attackerPiece == queenPiece) return true;
 		else if (dirIdx <= 3 && attackerPiece == rookPiece) return true;
-		else if (attackerPiece == bishopPiece) return true;
+		else if (dirIdx > 3 && attackerPiece == bishopPiece) return true;
 	}
 
 	return false;
@@ -558,7 +558,10 @@ void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
-			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(Move(from, to, NO_FLAG));
+			Move move(from, to, NO_FLAG); 
+			gameState.makeMove(move, g_EPHistory);
+			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(move);
+			gameState.unmakeMove(move, g_EPHistory);
 
 			bb &= bb - 1;
 		}
@@ -568,7 +571,10 @@ void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
-			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(Move(from, to, CAPTURE_FLAG));
+			Move move(from, to, CAPTURE_FLAG); 
+			gameState.makeMove(move, g_EPHistory);
+			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(move);
+			gameState.unmakeMove(move, g_EPHistory);
 
 			bb &= bb - 1;
 		}

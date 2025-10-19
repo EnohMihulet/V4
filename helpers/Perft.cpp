@@ -28,39 +28,39 @@ uint64 perft(GameState& state, std::vector<MoveInfo>& history, uint8 depth) {
 }
 
 uint64 perft_count(GameState& state, std::vector<MoveInfo>& history, uint8 depth, PerftStats& stats) {
-    if (depth == 0) {
-        stats.nodes += 1;
-        return 1ULL;
-    }
+	if (depth == 0) {
+		stats.nodes += 1;
+		return 1ULL;
+	}
 
-    std::vector<Move> moves;
-    moves.reserve(256);
-    generateAllMoves(state, moves, state.colorToMove);
+	std::vector<Move> moves;
+	moves.reserve(256);
+	generateAllMoves(state, moves, state.colorToMove);
 
-    if (moves.empty()) {
+	if (moves.empty()) {
 	uint64 kingBB = state.colorToMove == White ? state.bitboards[WKing] : state.bitboards[BKing];
 	Color them = state.colorToMove == White ? Black : White;
-        if (isSquareAttacked(state, kingBB, them)) stats.checkmates++;
-        else stats.stalemates++;
-        return 0ULL;
-    }
+		if (isSquareAttacked(state, kingBB, them)) stats.checkmates++;
+		else stats.stalemates++;
+		return 0ULL;
+	}
 
-    uint64 nodes = 0;
-    for (const Move& m : moves) {
+	uint64 nodes = 0;
+	for (const Move& m : moves) {
 
-        if (m.isCapture()) stats.captures++;
-        if (m.isEnPassant()) stats.enPassants++;
-        if (m.isKingSideCastle()) { stats.castles++; stats.ksCastles++; }
-        if (m.isQueenSideCastle()) { stats.castles++; stats.qsCastles++; }
-        if (m.isPromotion()) stats.promotions++;
-        if (m.isTwoUpMove()) stats.dblPushes++;
+		if (m.isCapture()) stats.captures++;
+		if (m.isEnPassant()) stats.enPassants++;
+		if (m.isKingSideCastle()) { stats.castles++; stats.ksCastles++; }
+		if (m.isQueenSideCastle()) { stats.castles++; stats.qsCastles++; }
+		if (m.isPromotion()) stats.promotions++;
+		if (m.isTwoUpMove()) stats.dblPushes++;
 
-        state.makeMove(m, history);
+		state.makeMove(m, history);
 
-        nodes += perft_count(state, history, depth - 1, stats);
-        state.unmakeMove(m, history);
-    }
-    return nodes;
+		nodes += perft_count(state, history, depth - 1, stats);
+		state.unmakeMove(m, history);
+	}
+	return nodes;
 }
 
 static void perftDivide(GameState& state, std::vector<MoveInfo>& history, uint8 depth) {
@@ -95,15 +95,16 @@ void runPerftTest() {
 		{2, 400ULL},
 		{3, 8902ULL},
 		{4, 197281ULL},
-		// {5, 4865609ULL}
+		{5, 4865609ULL}
 	};
 
 	for (const auto& [depth, exp] : expected) {
 		std::vector<MoveInfo> history;
 		history.reserve(1 << 12);
 
-		// GameState state((std::string)DEFAULT_FEN_POSITION);
-		GameState state("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+		GameState state((std::string)DEFAULT_FEN_POSITION);
+		// GameState state("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
+		// GameState state("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
 		auto t0 = std::chrono::high_resolution_clock::now();
 		PerftStats stats;
@@ -132,11 +133,12 @@ void runPerftTest() {
 	{
 		std::vector<MoveInfo> history;
 		
-		// GameState state((std::string)DEFAULT_FEN_POSITION);
-		GameState state("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+		GameState state((std::string)DEFAULT_FEN_POSITION);
+		// GameState state("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
+		// GameState state("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
-		std::cout << "\nRoot divide at depth 2:\n";
-		perftDivide(state, history, 2);
+		std::cout << "\nRoot divide at depth 3:\n";
+		perftDivide(state, history, 3);
 
 		std::vector<Move> rootMoves;
 		rootMoves.reserve(256);
@@ -144,7 +146,7 @@ void runPerftTest() {
 		std::mt19937_64 rng(0xC0FFEE);
 		std::shuffle(rootMoves.begin(), rootMoves.end(), rng);
 
-		uint8 depth = 2;
+		uint8 depth = 3;
 		uint64 sum = 0;
 		for (const Move& m : rootMoves) {
 			state.makeMove(m, history);

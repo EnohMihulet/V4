@@ -39,7 +39,7 @@ GUI_OBJS := $(addprefix $(OBJDIR)/,$(RAW_GUI_OBJS)) $(IMGUI_OBJS)
 
 .PHONY: all debug release debug_eval gui obj clean
 
-all: release
+all: debug
 
 debug: CXXFLAGS += -g -DDEBUG_MODE -DUCI_MODE
 debug: TARGET = engine-debug

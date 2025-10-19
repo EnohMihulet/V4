@@ -42,7 +42,9 @@ int main() {
 	ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
 	ImGui_ImplSDLRenderer2_Init(renderer);
 
-	GameState gameState((std::string) DEFAULT_FEN_POSITION);
+	// GameState gameState((std::string) DEFAULT_FEN_POSITION);
+	// GameState gameState("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
+	GameState gameState("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
 	GuiState guiState;
 	guiState.history.reserve(64);
 	guiState.movesMade.reserve(64);
@@ -73,6 +75,12 @@ int main() {
 		drawToggles(guiState);
 
 		drawUndoButton(gameState, guiState);
+
+		drawSelectPinnedRayIndex(guiState);
+
+		drawPinnedRayBitboard(guiState);
+		
+		drawIsSquareAttacked(gameState);
 
 		ImGui::Render();
 		SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
