@@ -93,6 +93,8 @@ constexpr uint8 PIECE_COUNT = 12;
 constexpr int16 NEG_INF = INT16_MIN + 1;
 constexpr int16 POS_INF = INT16_MAX;
 
+constexpr uint16 MAX_MOVE_COUNT = 218;
+
 static constexpr std::string_view DEFAULT_FEN_POSITION("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0");
 
 inline uint16 getPieceType(Piece piece) { return piece % 6; }

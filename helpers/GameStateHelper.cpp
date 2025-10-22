@@ -290,8 +290,7 @@ void testMakeUnmakeKings() {
 void testAllMoves(GameState state) {
 	std::cout << "\n=== Full Move Regression ===\n";
 	std::vector<MoveInfo> history;
-	std::vector<Move> moves;
-	moves.reserve(64);
+	MoveList moves;
 	generateAllMoves(state, moves, state.colorToMove);
 
 	int passed = 0, failed = 0;
@@ -309,7 +308,7 @@ void testAllMoves(GameState state) {
 		}
 	}
 
-	std::cout << "Moves tested: " << moves.size()
+	std::cout << "Moves tested: " << moves.back
 		  << " | Passed: " << passed
 		  << " | Failed: " << failed << std::endl;
 }

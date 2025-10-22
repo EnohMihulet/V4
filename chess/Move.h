@@ -67,6 +67,17 @@ static_assert(sizeof(Move) == 2);
 
 constexpr Move NULL_MOVE{};
 
+typedef struct MoveList {
+	std::array<Move, MAX_MOVE_COUNT> list;
+	uint16 back = 0;
+
+	inline void clear() { back = 0; }
+	inline void push(Move move) { assert(back < MAX_MOVE_COUNT); list[back++] = move; }
+	inline bool isEmpty() { return back == 0; }
+	inline Move* begin() { return &list[0]; }
+	inline Move* end() { return &list[back]; }
+} MoveList;
+
 inline std::string squareToString(uint16 sq) {
 	char file = 'a' + (sq % 8);
 	char rank = '1' + (sq / 8);

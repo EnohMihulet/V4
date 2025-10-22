@@ -111,7 +111,6 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();
 	assert(targetSq <= 63 && startSq <= 63);
-	if (pieceAt(startSq) == EMPTY) std::cout << move.moveToString() << std::endl;
 	assert(pieceAt(startSq) != EMPTY);
 
 	MoveInfo moveInfo;
@@ -255,7 +254,6 @@ void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {
 	castlingRights = moveInfo.castlingRights;
 	enPassantFile = moveInfo.enPassantFile;
 
-
 	uint16 targetSq = move.getTargetSquare();
 	uint16 startSq = move.getStartSquare();
 	assert(targetSq <= 63 && startSq <= 63);
@@ -299,14 +297,132 @@ void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {
 	else colorToMove = White;
 
 	#ifdef DEBUG_MODE
+	assert(moveInfo.bitboards == bitboards);
 	// for (size_t i = 0; i < bitboards.size(); i++) {
 	// 	if (moveInfo.bitboards[i] != bitboards[i]) {
+	// 		std::cout << toFenString();
 	// 		std::cout << (move.moveToString()) << std::endl;
 	// 		printBitboard(moveInfo.bitboards[i]);
 	// 		printBitboard(bitboards[i]);
 	// 	}
 	// }
 	#endif
+}
+
+Piece GameState::tempMakeMove(Move move) {
+	uint16 targetSq = move.getTargetSquare();
+	uint16 startSq = move.getStartSquare();
+	assert(targetSq <= 63 && startSq <= 63);
+	assert(pieceAt(startSq) != EMPTY);
+
+	Piece capturedPiece = pieceAt(targetSq);
+
+	Piece piece = pieceAt(startSq);
+	bool iswhite = isWhite(piece);
+	uint16 flags = move.getFlags();
+
+	clearSquare(startSq);
+
+	if (IS_SIMPLE_MOVE[flags]) [[likely]] {
+		clearSquare(targetSq);
+		setPiece(targetSq, piece);
+	}
+	else {
+		switch (flags) { 
+		case (EN_PASSANT_FLAG): {
+			uint16 captureSq = iswhite ? targetSq - 8 : targetSq + 8;
+			capturedPiece = pieceAt(captureSq);
+
+			setPiece(targetSq, piece);
+			clearSquare(captureSq);
+		} break;
+		case (KING_SIDE_FLAG): {
+			setPiece(targetSq, piece);
+			if (iswhite) {
+				clearSquare(7); 
+				setPiece(5, WRook); 
+			} else {
+				clearSquare(63); 
+				setPiece(61, BRook); 
+			}
+
+		} break;
+		case (QUEEN_SIDE_FLAG): {
+			setPiece(targetSq, piece);
+			if (iswhite) {
+				clearSquare(0); 
+				setPiece(3, WRook);
+			} else {
+				clearSquare(56); 
+				setPiece(59, BRook);
+			}
+		} break;
+		case (QUEEN_PROMOTE_CAPTURE): case (QUEEN_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) setPiece(targetSq, WQueen);
+			else setPiece(targetSq, BQueen);
+		} break;
+		case (KNIGHT_PROMOTE_CAPTURE): case (KNIGHT_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) setPiece(targetSq, WKnight);
+			else setPiece(targetSq, BKnight);
+		} break;
+		case (ROOK_PROMOTE_CAPTURE): case (ROOK_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) setPiece(targetSq, WRook);
+			else setPiece(targetSq, BRook);
+		} break;
+		case (BISHOP_PROMOTE_CAPTURE): case (BISHOP_PROMOTE_FLAG): {
+			clearSquare(targetSq);
+			if (iswhite) setPiece(targetSq, WBishop);
+			else setPiece(targetSq, BBishop);
+		} break;
+		default: break;
+		}
+	};
+
+	if (colorToMove == White) colorToMove = Black;
+	else colorToMove = White;
+	
+	return capturedPiece;
+}
+
+void GameState::tempUnmakeMove(Move move, Piece capturedPiece) {
+	uint16 targetSq = move.getTargetSquare();
+	uint16 startSq = move.getStartSquare();
+	assert(targetSq <= 63 && startSq <= 63);
+
+	Piece piece = pieceAt(targetSq);
+	bool iswhite = isWhite(piece);
+	uint16 flags = move.getFlags();
+	
+	if (IS_SIMPLE_MOVE[flags]) [[likely]] {
+		clearSquare(targetSq);
+		if (capturedPiece != EMPTY) setPiece(targetSq, capturedPiece);
+		setPiece(startSq, piece);
+	} 
+	else {
+		switch(flags) {
+		case (EN_PASSANT_FLAG): {
+			uint16 captureSq = iswhite ? targetSq - 8 : targetSq + 8;
+			clearSquare(targetSq);
+			setPiece(startSq, piece);
+			setPiece(captureSq, capturedPiece);
+		} break;
+		case (KING_SIDE_FLAG): iswhite ? undoWKingSide(*this) : undoBKingSide(*this); break;
+		case (QUEEN_SIDE_FLAG):iswhite ? undoWQueenSide(*this): undoBQueenSide(*this); break;
+		case (QUEEN_PROMOTE_FLAG): case (QUEEN_PROMOTE_CAPTURE): case (KNIGHT_PROMOTE_FLAG): case (KNIGHT_PROMOTE_CAPTURE): 
+		case (ROOK_PROMOTE_FLAG): case (ROOK_PROMOTE_CAPTURE): case (BISHOP_PROMOTE_FLAG): case (BISHOP_PROMOTE_CAPTURE): {
+			clearSquare(targetSq);
+			if (capturedPiece != EMPTY) setPiece(targetSq, capturedPiece);
+			setPiece(startSq, iswhite ? WPawn : BPawn);
+		} break;
+		default: break;
+		}
+	}
+	if (colorToMove == White) colorToMove = Black;
+	else colorToMove = White;
+
 }
 
 void GameState::setPiece(uint16 square, Piece piece) {

@@ -25,6 +25,9 @@ typedef struct GameState {
 	void makeMove(Move move, std::vector<MoveInfo>& history);
 	void unmakeMove(Move move, std::vector<MoveInfo>& history);
 
+	Piece tempMakeMove(Move move);
+	void tempUnmakeMove(Move move, Piece capturedPiece);
+
 	void setPiece(uint16 square, Piece piece);
 	void clearSquare(uint16 square);
 	Piece pieceAt(uint16 sq) const;

@@ -51,7 +51,7 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 					guiState.selectedPieceSq = index;
 					guiState.selectedPieceMoves.clear();
 					for (Move move : guiState.allMoves) {
-						if (move.getStartSquare() == guiState.selectedPieceSq) guiState.selectedPieceMoves.push_back(move);
+						if (move.getStartSquare() == guiState.selectedPieceSq) guiState.selectedPieceMoves.push(move);
 					}
 				}
 				else {
@@ -138,7 +138,7 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 
 	ImFont* font = ImGui::GetFont();
 	float base = ImGui::GetFontSize();
-	float labelSize = base * 0.9f; // subtle, readable
+	float labelSize = base * 0.9f;
 
 	for (int16 col = 0; col < numCols; ++col) {
 		char fileChar[2] = { static_cast<char>('a' + col), '\0' };

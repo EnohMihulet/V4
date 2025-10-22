@@ -5,26 +5,24 @@
 #include "../movegen/MoveGen.h"
 
 void printMovesAndScores(GameState& gameState) {
-	std::vector<Move> moves;
+	MoveList moves;
 	std::vector<MoveInfo> history;
 	generateAllMoves(gameState, moves, gameState.colorToMove);
 
-	PickMoveContext context = {std::vector<uint16>{(uint8)moves.size()}, moves[2], moves[3], 0, (uint8)moves.size()};
+	PickMoveContext context = {ScoreList(), moves.list[2], moves.list[3], 0, (uint8)moves.back};
 
 	scoreMoves(gameState, moves, context);
 	for (uint8 i = 0; i < context.size; i++) {
-		std::cout << "Move: " << moves[i].moveToString() << " | " 
-			<< "Score: " << context.scores[i] << std::endl;
-			
+		std::cout << "Move: " << moves.list[i].moveToString() << " | " << "Score: " << context.scores.list[i] << std::endl;
 	}
 
 	Move move = pickMove(moves, context);
 	std::cout << "Best Move: " << move.moveToString() << std::endl;
 }
 
-void scoreMoves(GameState& gameState, std::vector<Move>& moves, PickMoveContext& context) {
-	for (uint8 i = 0; i < context.size; i++) {
-		Move move = moves[i];
+void scoreMoves(GameState& gameState, MoveList& moves, PickMoveContext& context) {
+	for (uint16 i = 0; i < context.size; i++) {
+		Move move = moves.list[i];
 		uint16 score = 0;
 		score += move.val == context.pvMove.val ? PV_MOVE_SCORE : 0; 
 		score += move.val == context.ttMove.val ? TT_MOVE_SCORE : 0;
@@ -47,21 +45,21 @@ void scoreMoves(GameState& gameState, std::vector<Move>& moves, PickMoveContext&
 				score += PROMOTION_MULT * STANDARD_PIECE_VALUES[WBishop]; break;
 			}
 		}
-		context.scores[i] = score;
+		context.scores.push(score);
 	}
 }
 
-Move pickMove(std::vector<Move>& moves, PickMoveContext& context) {
+Move pickMove(MoveList& moves, PickMoveContext& context) {
 	uint8 maxIndex = context.start;
-	uint16 maxScore = context.scores[maxIndex];
+	uint16 maxScore = context.scores.list[maxIndex];
 	for (uint8 i = context.start; i < context.size; i++) {
-		if (context.scores[i] > maxScore) {
+		if (context.scores.list[i] > maxScore) {
 			maxIndex = i;
-			maxScore = context.scores[i];
+			maxScore = context.scores.list[i];
 		}
 	}
-	std::swap(moves[context.start], moves[maxIndex]);
-	std::swap(context.scores[context.start], context.scores[maxIndex]);
-	return moves[context.start++];
+	std::swap(moves.list[context.start], moves.list[maxIndex]);
+	std::swap(context.scores.list[context.start], context.scores.list[maxIndex]);
+	return moves.list[context.start++];
 }
 

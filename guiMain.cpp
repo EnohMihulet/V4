@@ -42,14 +42,10 @@ int main() {
 	ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
 	ImGui_ImplSDLRenderer2_Init(renderer);
 
-	// GameState gameState((std::string) DEFAULT_FEN_POSITION);
-	// GameState gameState("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
-	GameState gameState("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
+	GameState gameState((std::string)DEFAULT_FEN_POSITION);
 	GuiState guiState;
 	guiState.history.reserve(64);
 	guiState.movesMade.reserve(64);
-	guiState.allMoves.reserve(256);
-	guiState.selectedPieceMoves.reserve(24);
 	
 	generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
 

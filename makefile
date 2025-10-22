@@ -41,7 +41,7 @@ GUI_OBJS := $(addprefix $(OBJDIR)/,$(RAW_GUI_OBJS)) $(IMGUI_OBJS)
 
 all: debug
 
-debug: CXXFLAGS += -g -DDEBUG_MODE -DUCI_MODE
+debug: CXXFLAGS += -g -DDEBUG_MODE
 debug: TARGET = engine-debug
 debug: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
@@ -51,7 +51,7 @@ release: TARGET = engine
 release: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 
-debug_eval: CXXFLAGS += -g -DDEBUG_EVAL -DUCI_MODE
+debug_eval: CXXFLAGS += -g -DDEBUG_EVAL
 debug_eval: TARGET = engine-debug-eval
 debug_eval: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)

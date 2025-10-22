@@ -43,7 +43,7 @@ inline uint64 getTimeElapsedUS(uint64 startTime) {
 }
 
 inline double uint64ToElapsedUS(uint64 t) {
-    return static_cast<double>(t) * 1e6 / static_cast<double>(cntfrq());
+	return static_cast<double>(t) * 1e6 / static_cast<double>(cntfrq());
 }
 
 class SearchScopedTimer {

@@ -16,13 +16,11 @@ int main() {
 	std::ios::sync_with_stdio(false);
 	std::cin.tie(nullptr);
 
-	GameState gameState("rnb1kbnr/pppp1ppp/8/4P3/7q/8/PPPPP1PP/RNBQKBNR w KQkq - 0 1");
+	GameState gameState((std::string)DEFAULT_FEN_POSITION);
 	std::vector<MoveInfo> history;
 	history.reserve(256);
 
-	runPerftTest();
-	std::cout << "?" << std::endl;
-	
+
 	std::string command;
 	while (std::getline(std::cin, command)) {
 		if (command == "uci") {

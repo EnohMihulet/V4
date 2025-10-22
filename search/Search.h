@@ -2,6 +2,7 @@
 
 #include "../chess/GameState.h"
 #include "../helpers/Timer.h"
+#include "../search/MoveSorter.h"
 #include "../search/TranspositionTable.h"
 
 constexpr uint64 TIME_PER_MOVE = 5000;
@@ -43,7 +44,6 @@ typedef struct SearchTimes {
 	uint64 moveGeneration;
 	uint64 moveScoring;
 	uint64 movePicking;
-	uint64 moveVectorCreation;
 
 	uint64 moveMaking;
 	uint64 moveUnmaking;
@@ -52,12 +52,40 @@ typedef struct SearchTimes {
 	uint64 repetitionPop;
 } SearchTimes;
 
-#ifdef DEBUG_MODE
+typedef struct MovePool {
+	std::array<MoveList, 30> pool;
+
+	MoveList& getMoveList(uint8 depth) {
+		pool[depth].clear();
+		return pool[depth];
+	}
+} MovePool;
+
+typedef struct MoveScorePool {
+	std::array<ScoreList, 30> pool;
+
+	ScoreList& getScoreList(uint8 depth) {
+		pool[depth].clear();
+		return pool[depth];
+	}
+
+} MoveScorePool;
+
+typedef struct QuiescencePool {
+	std::array<MoveList, 5> pool;
+
+	MoveList& getMoveList(uint8 depth) {
+		pool[depth].clear();
+		return pool[depth];
+	}
+} QuiescencePool;
+
+// Debug version
 int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining, SearchStats& stats, SearchTimes& times);
-#else
+
+// Release version
 int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining);
-#endif
 
 void clearTranspositionTable();

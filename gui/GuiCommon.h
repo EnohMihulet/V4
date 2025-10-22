@@ -24,8 +24,8 @@ static const char* BitboardStrings[BitboardStringsSize] = {"WPawns", "WKnight", 
 typedef struct GuiState {
 	std::vector<MoveInfo> history;
 	std::vector<Move> movesMade;
-	std::vector<Move> allMoves;
-	std::vector<Move> selectedPieceMoves;
+	MoveList allMoves;
+	MoveList selectedPieceMoves;
 	Bitboard checkMask; 
 	Bitboard pinnedPieces; 
 	std::array<Bitboard, 64> pinnedRays;

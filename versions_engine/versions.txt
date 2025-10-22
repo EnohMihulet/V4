@@ -59,4 +59,97 @@ engine_2:
 engine_3
 	Insufficient material draw added
 	Change repetition table push/pop search to go from end to start
+	AND Fixed move generation
 
+	Depth 8
+	  Best move: e2e3
+	  Time elapsed: 5,000.00ms
+	  Zobrist: 0xb,d3d,357,696,2fa,df2
+	──────────────────────────────────────────────────────────
+	  Nodes searched:      7,366,795
+	  Pruned nodes:        18,473,508
+	  Beta cut-offs:       781,009
+	──────────────────────────────────────────────────────────
+	  TT probes:           1,077,630
+	  TT hits:             152,378
+	  TT useful hits:      145,364
+	  TT cutoff hits:      131,335
+	──────────────────────────────────────────────────────────
+	  TT stores (total):   946,266
+		• Exact stores:     42,406
+		• Lower-bound stores:781,009
+		• Upper-bound stores:122,851
+	──────────────────────────────────────────────────────────
+	
+	──────────────────────────────────────────────────────────
+	Times
+	  Total time: 5,000ms
+	  Evaluation time: 1,547,056.75μs
+	  Transposition look-up time: 12,367.67μs
+	  Transposition insertion time: 13,448.21μs
+	  Game state check time: 6,083.46μs
+	  Pick context setup time: 157,190.50μs
+	──────────────────────────────────────────────────────────
+	  Move generation time: 1,185,744.42μs
+	  Move scoring time: 169,339.83μs
+	  Move picking time: 395,582.42μs
+	  Move vector creation time: 154,686.42μs
+	  Vector freeing time: 231,929.00μs
+	  Move making time: 568,943.38μs
+	  Move unmaking time: 415,493.17μs
+	──────────────────────────────────────────────────────────
+	  Repetition push time: 22,742.79μs
+	  Repetition pop time: 13,123.58μs
+	──────────────────────────────────────────────────────────
+	  Sum (tracked): 4,661,802.00μs
+	  Sum (tracked): 4,661.80ms
+	──────────────────────────────────────────────────────────
+
+
+engine_4
+	Move/MoveScore Pool instead of new vectors every recursive call
+	Quiescence Search 
+	tempMake/unmake move for move generation
+	MoveList instead of std::vector
+
+	Depth 9
+	  Best move: a2a3
+	  Time elapsed: 5,000.00ms
+	  Zobrist: 0xb,d3d,357,696,2fa,df2
+	──────────────────────────────────────────────────────────
+	  Nodes searched:      4,799,010
+	  Pruned nodes:        12,972,281
+	  Beta cut-offs:       647,967
+	──────────────────────────────────────────────────────────
+	  TT probes:           839,435
+	  TT hits:             174,762
+	  TT useful hits:      125,216
+	  TT cutoff hits:      113,702
+	──────────────────────────────────────────────────────────
+	  TT stores (total):   725,724
+		• Exact stores:     16,177
+		• Lower-bound stores:647,967
+		• Upper-bound stores:61,580
+	──────────────────────────────────────────────────────────
+	
+	──────────────────────────────────────────────────────────
+	Times
+	  Total time: 5,000ms
+	  Evaluation time: 3,422,426.54μs
+	  Transposition look-up time: 7,674.88μs
+	  Transposition insertion time: 7,523.25μs
+	  Game state check time: 3,783.50μs
+	  Pick context setup time: 7,260.08μs
+	──────────────────────────────────────────────────────────
+	  Move generation time: 420,984.08μs
+	  Move scoring time: 137,933.58μs
+	  Move picking time: 245,863.38μs
+	  Move making time: 352,967.04μs
+	  Move unmaking time: 305,613.12μs
+	──────────────────────────────────────────────────────────
+	  Repetition push time: 11,405.17μs
+	  Repetition pop time: 9,209.25μs
+	──────────────────────────────────────────────────────────
+	  Sum (tracked): 4,932,643.00μs
+	  Sum (tracked): 4,932.64ms
+	──────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@
 #include "PrecomputedTables.h"
 #include "../helpers/GameStateHelper.h"
 
-std::vector<MoveInfo> g_EPHistory;
+std::vector<MoveInfo> g_TempHistory;
 
 bool isSquareAttacked(const GameState& gameState, uint64 pos, Color them) {
 	if (!pos) return false;
@@ -120,7 +120,6 @@ void computeCheckAndPinMasks(const GameState& gameState, Color us, Bitboard& che
 	else return;
 
 	Bitboard enemyPawn, enemyBishop, enemyKnight, enemyRook, enemyQueen;
-	Color them;
 	uint8 ourIndex;
 	if (us == White) {
 		enemyPawn = gameState.bitboards[BPawn];
@@ -128,7 +127,6 @@ void computeCheckAndPinMasks(const GameState& gameState, Color us, Bitboard& che
 		enemyKnight = gameState.bitboards[BKnight];
 		enemyRook = gameState.bitboards[BRook];
 		enemyQueen = gameState.bitboards[BQueen];
-		them = Black;
 		ourIndex = WhiteIndex;
 	}
 	else {
@@ -137,7 +135,6 @@ void computeCheckAndPinMasks(const GameState& gameState, Color us, Bitboard& che
 		enemyKnight = gameState.bitboards[WKnight];
 		enemyRook = gameState.bitboards[WRook];
 		enemyQueen = gameState.bitboards[WQueen];
-		them = White;
 		ourIndex = BlackIndex;
 	}
 
@@ -186,7 +183,7 @@ void computeCheckAndPinMasks(const GameState& gameState, Color us, Bitboard& che
 	}
 }
 
-void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+void generatePawnMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 
 	auto pushLoop = [&](Bitboard bb, int16 shift, uint16 promotionRank) {
 		while (bb) {
@@ -199,11 +196,11 @@ void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			}
 
 			if ((us == White && to/8 >= promotionRank) || (us == Black && to/8 <= promotionRank)) {
-				moves.push_back(Move(from, to, QUEEN_PROMOTE_FLAG));
-				moves.push_back(Move(from, to, KNIGHT_PROMOTE_FLAG));
-				moves.push_back(Move(from, to, ROOK_PROMOTE_FLAG));
-				moves.push_back(Move(from, to, BISHOP_PROMOTE_FLAG));
-			} else moves.push_back(Move(from, to, NO_FLAG));
+				moves.push(Move(from, to, QUEEN_PROMOTE_FLAG));
+				moves.push(Move(from, to, KNIGHT_PROMOTE_FLAG));
+				moves.push(Move(from, to, ROOK_PROMOTE_FLAG));
+				moves.push(Move(from, to, BISHOP_PROMOTE_FLAG));
+			} else moves.push(Move(from, to, NO_FLAG));
 			bb &= bb - 1;
 		}
 	};
@@ -218,7 +215,7 @@ void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 				continue;
 			}
 
-			moves.push_back(Move(from, to, PAWN_TWO_UP_FLAG));
+			moves.push(Move(from, to, PAWN_TWO_UP_FLAG));
 			bb &= bb - 1;
 		}
 	};
@@ -234,11 +231,11 @@ void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			}
 
 			if ((us == White && to/8 >= promotionRank) || (us == Black && to/8 <= promotionRank)) {
-				moves.push_back(Move(from, to, QUEEN_PROMOTE_CAPTURE));
-				moves.push_back(Move(from, to, KNIGHT_PROMOTE_CAPTURE));
-				moves.push_back(Move(from, to, ROOK_PROMOTE_CAPTURE));
-				moves.push_back(Move(from, to, BISHOP_PROMOTE_CAPTURE));
-			} else moves.push_back(Move(from, to, CAPTURE_FLAG));
+				moves.push(Move(from, to, QUEEN_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, KNIGHT_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, ROOK_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, BISHOP_PROMOTE_CAPTURE));
+			} else moves.push(Move(from, to, CAPTURE_FLAG));
 			bb &= bb - 1;
 		}
 	};
@@ -275,18 +272,18 @@ void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			uint16 from = to - 7;
 			Move epMove{from, to, EN_PASSANT_FLAG};
 
-			gameState.makeMove(epMove, g_EPHistory);
-			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push_back(epMove);
-			gameState.unmakeMove(epMove, g_EPHistory);
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
 		}
 		if (rightEnpassant) {
 			uint16 to = __builtin_ctzll(rightEnpassant);
 			uint16 from = to - 9;
 			Move epMove{from, to, EN_PASSANT_FLAG};
 
-			gameState.makeMove(epMove, g_EPHistory);
-			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push_back(epMove);
-			gameState.unmakeMove(epMove, g_EPHistory);
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
 		}
 	}
 	else {
@@ -315,28 +312,28 @@ void generatePawnMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			uint16 from = to + 9;
 			Move epMove{from, to, EN_PASSANT_FLAG};
 
-			gameState.makeMove(epMove, g_EPHistory);
-			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push_back(epMove);
-			gameState.unmakeMove(epMove, g_EPHistory);
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
 		}
 		if (rightEnpassant) {
 			uint16 to = __builtin_ctzll(rightEnpassant);
 			uint16 from = to + 7;
 			Move epMove{from, to, EN_PASSANT_FLAG};
 
-			gameState.makeMove(epMove, g_EPHistory);
-			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push_back(epMove);
-			gameState.unmakeMove(epMove, g_EPHistory);
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
 		}
 	}
 }
 
-void generateKnightMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces) {
+void generateKnightMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces) {
 	auto moveLoop = [&](Bitboard bb, uint8 from) {
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
-			moves.push_back(Move(from, to, NO_FLAG));
+			moves.push(Move(from, to, NO_FLAG));
 
 			bb &= bb - 1;
 		}
@@ -346,7 +343,7 @@ void generateKnightMoves(GameState& gameState, std::vector<Move>& moves, Color u
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
-			moves.push_back(Move(from, to, CAPTURE_FLAG));
+			moves.push(Move(from, to, CAPTURE_FLAG));
 
 			bb &= bb - 1;
 		}
@@ -378,13 +375,13 @@ void generateKnightMoves(GameState& gameState, std::vector<Move>& moves, Color u
 	}
 }
 
-void generateBishopMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+void generateBishopMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 	auto moveLoop = [&](Bitboard bb, uint8 from) {
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, NO_FLAG));
+				moves.push(Move(from, to, NO_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -396,7 +393,7 @@ void generateBishopMoves(GameState& gameState, std::vector<Move>& moves, Color u
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, CAPTURE_FLAG));
+				moves.push(Move(from, to, CAPTURE_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -436,13 +433,13 @@ void generateBishopMoves(GameState& gameState, std::vector<Move>& moves, Color u
 	}
 }
 
-void generateRookMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+void generateRookMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 	auto moveLoop = [&](Bitboard bb, uint8 from) {
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, NO_FLAG));
+				moves.push(Move(from, to, NO_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -454,7 +451,7 @@ void generateRookMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, CAPTURE_FLAG));
+				moves.push(Move(from, to, CAPTURE_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -494,13 +491,13 @@ void generateRookMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 	}
 }
 
-void generateQueenMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+void generateQueenMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 	auto moveLoop = [&](Bitboard bb, uint8 from) {
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, NO_FLAG));
+				moves.push(Move(from, to, NO_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -512,7 +509,7 @@ void generateQueenMoves(GameState& gameState, std::vector<Move>& moves, Color us
 			uint8 to = __builtin_ctzll(bb);
 
 			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
-				moves.push_back(Move(from, to, CAPTURE_FLAG));
+				moves.push(Move(from, to, CAPTURE_FLAG));
 			}
 
 			bb &= bb - 1;
@@ -552,16 +549,17 @@ void generateQueenMoves(GameState& gameState, std::vector<Move>& moves, Color us
 	}
 }
 
-void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask) {
+void generateKingMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask) {
 	Color them = us == White ? Black : White;
 	auto moveLoop = [&](Bitboard bb, uint8 from) {
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
+			// Should be a better way to do this. This prevents king from moving in the attack ray of a sliding piece that it (the king) blocks
 			Move move(from, to, NO_FLAG); 
-			gameState.makeMove(move, g_EPHistory);
-			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(move);
-			gameState.unmakeMove(move, g_EPHistory);
+			gameState.tempMakeMove(move);
+			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push(move);
+			gameState.tempUnmakeMove(move, EMPTY);
 
 			bb &= bb - 1;
 		}
@@ -571,10 +569,12 @@ void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 		while (bb) {
 			uint8 to = __builtin_ctzll(bb);
 
+			// Should be a better way to do this. This prevents king from moving in the attack ray of a sliding piece that it (the king) blocks
+			// TODO: Test the tmepMake/unmake better 
 			Move move(from, to, CAPTURE_FLAG); 
-			gameState.makeMove(move, g_EPHistory);
-			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push_back(move);
-			gameState.unmakeMove(move, g_EPHistory);
+			Piece capturedPiece = gameState.tempMakeMove(move);
+			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push(move);
+			gameState.tempUnmakeMove(move, capturedPiece);
 
 			bb &= bb - 1;
 		}
@@ -600,14 +600,14 @@ void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			if (!isSquareAttacked(gameState, 1ULL << 5, them) &&
 				!isSquareAttacked(gameState, 1ULL << 6, them) &&
 				checkMask == ~0ULL) 
-				moves.push_back(Move(from, 6, KING_SIDE_FLAG));
+				moves.push(Move(from, 6, KING_SIDE_FLAG));
 		}
 		if ((gameState.castlingRights & W_QUEEN_SIDE) &&
 			(empty & ((1ULL << 1) | (1ULL << 2) | (1ULL << 3))) == ((1ULL << 1) | (1ULL << 2) | (1ULL << 3))) {
 			if (!isSquareAttacked(gameState, 1ULL << 3, them) &&
 				!isSquareAttacked(gameState, 1ULL << 2, them) &&
 				checkMask == ~0ULL)
-			moves.push_back(Move(from, 2, QUEEN_SIDE_FLAG));
+			moves.push(Move(from, 2, QUEEN_SIDE_FLAG));
 		}
 	}
 	else {
@@ -616,19 +616,19 @@ void generateKingMoves(GameState& gameState, std::vector<Move>& moves, Color us,
 			if (!isSquareAttacked(gameState, 1ULL << 61, them) &&
 				!isSquareAttacked(gameState, 1ULL << 62, them) &&
 				checkMask == ~0ULL) 
-			moves.push_back(Move(from, 62, KING_SIDE_FLAG));
+			moves.push(Move(from, 62, KING_SIDE_FLAG));
 		}
 		if ((gameState.castlingRights & B_QUEEN_SIDE) &&
 			(empty & ((1ULL << 57) | (1ULL << 58) | (1ULL << 59))) == ((1ULL << 57) | (1ULL << 58) | (1ULL << 59))) {
 			if (!isSquareAttacked(gameState, 1ULL << 59, them) &&
 				!isSquareAttacked(gameState, 1ULL << 58, them) &&
 				checkMask == ~0ULL)
-			moves.push_back(Move(from, 58, QUEEN_SIDE_FLAG));
+			moves.push(Move(from, 58, QUEEN_SIDE_FLAG));
 		}
 	}
 }
 
-void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us) {
+void generateAllMoves(GameState& gameState, MoveList& moves, Color us) {
 	Bitboard pinnedPieces = 0;
 	Bitboard checkMask = 0;
 	std::array<Bitboard, 64> pinnedRays;
@@ -647,7 +647,7 @@ void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us) 
 	generateKingMoves(gameState, moves, us, checkMask);
 }
 
-void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+void generateAllMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 	pinnedPieces = 0;
 	checkMask = 0;
 	pinnedRays.fill(0);
@@ -665,3 +665,333 @@ void generateAllMoves(GameState& gameState, std::vector<Move>& moves, Color us, 
 	generateQueenMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
 	generateKingMoves(gameState, moves, us, checkMask);
 }
+
+void generatePawnCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, 
+			      Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+
+	auto captureLoop = [&](Bitboard bb, int16 shift, uint16 promotionRank) {
+		while (bb) {
+			uint16 to = __builtin_ctzll(bb);
+			uint16 from = to - shift;
+
+			if (pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to))) {
+				bb &= bb - 1;
+				continue;
+			}
+
+			if ((us == White && to/8 >= promotionRank) || (us == Black && to/8 <= promotionRank)) {
+				moves.push(Move(from, to, QUEEN_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, KNIGHT_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, ROOK_PROMOTE_CAPTURE));
+				moves.push(Move(from, to, BISHOP_PROMOTE_CAPTURE));
+			} else moves.push(Move(from, to, CAPTURE_FLAG));
+			bb &= bb - 1;
+		}
+	};
+
+	uint8 enpassantFile = gameState.enPassantFile;
+	Bitboard epFileMask = 0ULL;
+	if (enpassantFile != NO_ENPASSANT_FILE) epFileMask = FILE_A << enpassantFile;
+
+	if (us == White) {
+		Bitboard pawns = gameState.bitboards[WPawn];
+		Bitboard enemies = gameState.bitboards[BlackIndex];
+		
+		Bitboard leftCaptures = (pawns & ~FILE_A) << 7 & enemies & checkMask;
+		Bitboard rightCaptures = (pawns & ~FILE_H) << 9 & enemies & checkMask;
+
+		captureLoop(leftCaptures, 7, 7);
+		captureLoop(rightCaptures, 9, 7);
+
+		Bitboard epSquare = epFileMask & RANK_6;
+
+		Bitboard leftEnpassant = (pawns & ~FILE_A) << 7 & epSquare;
+		Bitboard rightEnpassant = (pawns & ~FILE_H) << 9 & epSquare;
+
+		if (leftEnpassant) {
+			uint16 to = __builtin_ctzll(leftEnpassant);
+			uint16 from = to - 7;
+			Move epMove{from, to, EN_PASSANT_FLAG};
+
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
+		}
+		if (rightEnpassant) {
+			uint16 to = __builtin_ctzll(rightEnpassant);
+			uint16 from = to - 9;
+			Move epMove{from, to, EN_PASSANT_FLAG};
+
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[WKing], Black)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
+		}
+	}
+	else {
+		Bitboard pawns = gameState.bitboards[BPawn];
+		Bitboard enemies = gameState.bitboards[WhiteIndex];
+		
+		Bitboard leftCaptures = (pawns & ~FILE_A) >> 9 & enemies & checkMask;
+		Bitboard rightCaptures = (pawns & ~FILE_H) >> 7 & enemies & checkMask;
+
+		captureLoop(leftCaptures, -9, 0);
+		captureLoop(rightCaptures, -7, 0);
+
+		Bitboard epSquareMask = epFileMask & RANK_3;
+
+		Bitboard leftEnpassant = (pawns & ~FILE_A) >> 9 & epSquareMask;
+		Bitboard rightEnpassant = (pawns & ~FILE_H) >> 7 & epSquareMask;
+
+		if (leftEnpassant) {
+			uint16 to = __builtin_ctzll(leftEnpassant);
+			uint16 from = to + 9;
+			Move epMove{from, to, EN_PASSANT_FLAG};
+
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
+		}
+		if (rightEnpassant) {
+			uint16 to = __builtin_ctzll(rightEnpassant);
+			uint16 from = to + 7;
+			Move epMove{from, to, EN_PASSANT_FLAG};
+
+			Piece capturedPiece = gameState.tempMakeMove(epMove);
+			if (!isSquareAttacked(gameState, gameState.bitboards[BKing], White)) moves.push(epMove);
+			gameState.tempUnmakeMove(epMove, capturedPiece);
+		}
+	}
+}
+
+void generateKnightCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces) {
+	auto captureLoop = [&](Bitboard bb, uint8 from) {
+		while (bb) {
+			uint8 to = __builtin_ctzll(bb);
+
+			moves.push(Move(from, to, CAPTURE_FLAG));
+
+			bb &= bb - 1;
+		}
+	};
+
+	Bitboard enemies = (us == White) ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
+	Bitboard knights = (us == White) ? gameState.bitboards[WKnight] : gameState.bitboards[BKnight];
+
+	while (knights) {
+		const uint8 from = __builtin_ctzll(knights);
+		const Bitboard fromBB = (1ULL << from);
+
+		if (pinnedPieces & fromBB) {
+			knights &= (knights - 1);
+			continue;
+		}
+
+		const Bitboard atk = KNIGHT_ATTACK_TABLE[from] & checkMask;
+
+		const Bitboard captures = atk & enemies;
+
+		captureLoop(captures, from);
+
+		knights &= (knights - 1);
+	}
+}
+
+void generateBishopCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+	auto captureLoop = [&](Bitboard bb, uint8 from) {
+		if (bb) {
+			uint8 to = __builtin_ctzll(bb);
+
+			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
+				moves.push(Move(from, to, CAPTURE_FLAG));
+			}
+
+			bb &= bb - 1;
+		}
+	};
+
+	Bitboard all = gameState.bitboards[AllIndex];
+	Bitboard bishops = us == White ? gameState.bitboards[WBishop] : gameState.bitboards[BBishop];
+	Bitboard enemies = us == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
+
+	while (bishops) {
+		uint8 bishopSq = __builtin_ctzll(bishops);
+
+		for (int8 i = 0; i < 4; i++) {
+			uint8 directionIndex = DIAGONAL_RAY_TABLE_INDICIES[i];
+			Bitboard diagonalRay = RAY_MASK[bishopSq][directionIndex];
+
+			if (diagonalRay) {
+				Bitboard intersectionWithPiece = all & diagonalRay;
+
+				if (intersectionWithPiece) {
+					uint8 firstPieceSq;
+					bool isDecreasing = DIAGONAL_DECREASES[i]; 
+
+					if (isDecreasing) firstPieceSq = 63 - __builtin_clzll(intersectionWithPiece);
+					else firstPieceSq = __builtin_ctzll(intersectionWithPiece);
+
+					if ((1ULL << firstPieceSq) & enemies & checkMask) captureLoop(1ULL << firstPieceSq, bishopSq);
+				}
+			}
+		}
+		bishops &= bishops - 1;
+	}
+}
+
+void generateRookCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, 
+			      Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+
+	auto captureLoop = [&](Bitboard bb, uint8 from) {
+		if (bb) {
+			uint8 to = __builtin_ctzll(bb);
+
+			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
+				moves.push(Move(from, to, CAPTURE_FLAG));
+			}
+
+			bb &= bb - 1;
+		}
+	};
+
+	Bitboard all = gameState.bitboards[AllIndex];
+	Bitboard rooks = us == White ? gameState.bitboards[WRook] : gameState.bitboards[BRook];
+	Bitboard enemies = us == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
+
+	while (rooks) {
+		uint8 rookSq = __builtin_ctzll(rooks);
+
+		for (int8 i = 0; i < 4; i++) {
+	 		uint8 directionIndex = STRAIGHT_RAY_TABLE_INDICIES[i];
+			Bitboard straightRay = RAY_MASK[rookSq][directionIndex];
+
+			if (straightRay) {
+				Bitboard intersectionWithPiece = all & straightRay;
+
+				if (intersectionWithPiece) {
+					bool isDecreasing = STRAIGHT_DECREASES[i]; 
+					uint8 firstPieceSq;
+
+					if (isDecreasing) firstPieceSq = 63 - __builtin_clzll(intersectionWithPiece);
+					else  firstPieceSq = __builtin_ctzll(intersectionWithPiece);
+
+					if ((1ULL << firstPieceSq) & enemies & checkMask) captureLoop(1ULL << firstPieceSq, rookSq);
+				}
+			}
+		}
+		rooks &= rooks - 1;
+	}
+}
+
+void generateQueenCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, 
+			       Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+
+	auto captureLoop = [&](Bitboard bb, uint8 from) {
+		if (bb) {
+			uint8 to = __builtin_ctzll(bb);
+
+			if (!(pinnedPieces & (1ULL << from) && !(pinnedRays[from] & (1ULL << to)))) {
+				moves.push(Move(from, to, CAPTURE_FLAG));
+			}
+
+			bb &= bb - 1;
+		}
+	};
+
+	Bitboard all = gameState.bitboards[AllIndex];
+	Bitboard queens = us == White ? gameState.bitboards[WQueen] : gameState.bitboards[BQueen];
+	Bitboard enemies = us == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
+
+	while (queens) {
+		uint8 queenSq = __builtin_ctzll(queens);
+
+		for (int8 i = 0; i < 8; i++) {
+			int8 directionIndex = RAY_TABLE_INDICIES[i];
+			Bitboard ray = RAY_MASK[queenSq][directionIndex];
+
+			if (ray) {
+				Bitboard intersectionWithPiece = all & ray;
+
+				if (intersectionWithPiece) {
+					bool isDecreasing = DIRECTION_DECREASES[i]; 
+					uint8 firstPieceSq;
+
+					if (isDecreasing) firstPieceSq = 63 - __builtin_clzll(intersectionWithPiece);
+					else firstPieceSq = __builtin_ctzll(intersectionWithPiece);
+					
+					if ((1ULL << firstPieceSq) & enemies & checkMask) captureLoop(1ULL << firstPieceSq, queenSq);	
+				}
+			}
+		}
+		queens &= queens - 1;
+	}
+}
+
+void generateKingCaptureMoves(GameState& gameState, MoveList& moves, Color us) {
+
+	Color them = us == White ? Black : White;
+
+	auto captureLoop = [&](Bitboard bb, uint8 from) {
+		while (bb) {
+			uint8 to = __builtin_ctzll(bb);
+
+			// Should be a better way to do this. This prevents king from moving in the attack ray of a sliding piece that it (the king) blocks
+			// TODO: Test the tmepMake/unmake better 
+			Move move(from, to, CAPTURE_FLAG); 
+			Piece capturedPiece = gameState.tempMakeMove(move);
+			if (!isSquareAttacked(gameState, 1ULL << to, them)) moves.push(move);
+			gameState.tempUnmakeMove(move, capturedPiece);
+
+			bb &= bb - 1;
+		}
+	};
+
+	Bitboard kings = us == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
+	Bitboard enemies = us == White ? gameState.bitboards[BlackIndex] : gameState.bitboards[WhiteIndex];
+
+	uint8 from;
+	if (kings) from = __builtin_ctzll(kings);
+	else return;
+
+	Bitboard captures = KING_ATTACK_TABLE[from] & enemies;
+	
+	captureLoop(captures, from);
+}
+
+void generateAllCaptureMoves(GameState& gameState, MoveList& moves, Color us) {
+	Bitboard pinnedPieces = 0;
+	Bitboard checkMask = 0;
+	std::array<Bitboard, 64> pinnedRays;
+	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
+
+	if (checkMask == 0ULL) {
+		generateKingMoves(gameState, moves, us, checkMask);
+		return;
+	}
+
+	generatePawnCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKnightCaptureMoves(gameState, moves, us, checkMask, pinnedPieces);
+	generateBishopCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateRookCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateQueenCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKingCaptureMoves(gameState, moves, us);
+}
+
+void generateAllCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
+	pinnedPieces = 0;
+	checkMask = 0;
+	pinnedRays.fill(0);
+	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
+
+	if (checkMask == 0ULL) {
+		generateKingMoves(gameState, moves, us, checkMask);
+		return;
+	}
+
+	generatePawnCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKnightCaptureMoves(gameState, moves, us, checkMask, pinnedPieces);
+	generateBishopCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateRookCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateQueenCaptureMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKingCaptureMoves(gameState, moves, us);
+}
+

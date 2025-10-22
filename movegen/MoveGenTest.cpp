@@ -6,7 +6,7 @@
 #include "MoveGenTest.h"
 #include "../helpers/Timer.h"
 
-void generatePieceMoves(GameState& gameState, std::vector<Move>& moves, Piece piece) {
+void generatePieceMoves(GameState& gameState, MoveList& moves, Piece piece) {
 	Color us = getPieceColor(piece);
 	Bitboard checkMask = 0;
 	Bitboard pinnedPieces = 0;
@@ -33,7 +33,7 @@ void generatePieceMoves(GameState& gameState, std::vector<Move>& moves, Piece pi
 }
 
 void printPieceMoves(GameState& gameState, Piece piece) {
-	std::vector<Move> moves;
+	MoveList moves;
 	std::vector<MoveInfo> history;
 
 	generatePieceMoves(gameState, moves, piece);
@@ -55,7 +55,7 @@ void printPieceMoves(GameState& gameState, Piece piece) {
 }
 
 void printGeneratedMoves(GameState& gameState, Color color) {
-	std::vector<Move> moves;
+	MoveList moves;
 	std::vector<MoveInfo> history;
 	generateAllMoves(gameState, moves, color);
 
@@ -83,7 +83,7 @@ void timePieceMoves(GameState& gameState, Piece piece) {
 	std::array<Bitboard, 64> pinnedRays;
 	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
 
-	std::vector<Move> moves;
+	MoveList moves;
 
 	switch (piece) {
 	case WPawn: {
@@ -141,7 +141,7 @@ void timePieceMoves(GameState& gameState, Piece piece) {
 }
 
 void timeLegalMoves(GameState& gameState, Color color) {
-	std::vector<Move> moves;
+	MoveList moves;
 
 	ScopedTimer timer("Puesdo legal move generation"); 
 	generateAllMoves(gameState, moves, color);
@@ -149,7 +149,7 @@ void timeLegalMoves(GameState& gameState, Color color) {
 
 void testPieceMoveGeneration(const std::string& fen, Piece piece, const std::string& expected) {
 	GameState state(fen);
-	std::vector<Move> moves;
+	MoveList moves;
 	generatePieceMoves(state, moves, piece);
 
 	std::cout << "--------------------------------------\n";
