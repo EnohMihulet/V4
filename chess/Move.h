@@ -5,6 +5,9 @@
 #include <string>
 
 #include "Common.h"
+#include "GameState.h"
+
+struct GameState;
 
 #ifdef DEBUG_MODE
 typedef struct MoveInfo {
@@ -36,7 +39,7 @@ typedef struct Move {
 		assert(startSq <= 63 && targetSq <= 63 && FLAGS <= 15);
 		val = startSq | (targetSq << 6) | (FLAGS << 12);
 	}
-	Move(const std::string& uicMove);
+	Move(const GameState& gameState, const std::string& uicMove);
 
 	inline bool isNull() {
 		return val == 0;

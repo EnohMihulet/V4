@@ -2,29 +2,36 @@
 
 #include "../chess/Common.h"
 #include "../chess/Move.h"
+#include "Search.h"
 
 enum NodeType { Exact, UpperBound, LowerBound };
+enum LookUpType {None, Score, AlphaIncrease, BetaIncrease};
 
 constexpr uint32 TABLE_SIZE = 524288;
 constexpr int16 SCORE_SENTINAL = -3103;
 
-struct Entry {
+typedef struct Entry {
 	uint64 zobrist;
 	Move bestMove;
 	int16 score;
 	uint8 depth;
 	NodeType nodeType;
-};
+} Entry;
 
-struct TranspositionTable {
+typedef struct ttLookUpData {
+	LookUpType type;
+	int16 value;
+} ttLookUpData;
+
+typedef struct TranspositionTable {
 	Entry* table;
 
 	TranspositionTable() { 
 		table = new Entry[TABLE_SIZE]{}; 
-		clear_table();
+		clearTable();
 	}
 
-	inline void clear_table() {
+	inline void clearTable() {
 		for (uint32 i = 0; i < TABLE_SIZE; i++) table[i] = {0,NULL_MOVE,SCORE_SENTINAL,0,Exact};
 	}
 
@@ -49,4 +56,51 @@ struct TranspositionTable {
 		else if (alpha <= originalAlpha) return UpperBound;
 		return Exact;
 	}
-};
+
+	inline ttLookUpData lookUp(uint64 zobrist, int16 alpha, int16 beta, uint8 pliesRemaining, SearchStats& stats) {
+		Entry entry = table[index(zobrist)];
+		if (zobrist == entry.zobrist && entry.score != SCORE_SENTINAL) { 
+			stats.ttHits++;
+			if (entry.depth >= pliesRemaining) {
+				stats.ttHitsUseful++;
+				
+				if (entry.nodeType == Exact) {
+					stats.ttHitCutoffs++; 
+					return {Score, entry.score};
+				}
+				if (entry.nodeType == LowerBound && entry.score >= beta) {
+					stats.ttHitCutoffs++; 
+					return {Score, entry.score};
+				}
+				if (entry.nodeType == UpperBound && entry.score <= alpha) {
+					stats.ttHitCutoffs++; 
+					return {Score, entry.score};
+				}
+				if (entry.nodeType == LowerBound) return {AlphaIncrease, std::max(alpha, entry.score)};
+				else if (entry.nodeType == UpperBound) return {BetaIncrease, std::min(beta, entry.score)};
+			}
+		}
+		return {None, -1};
+	};
+
+	inline ttLookUpData lookUp(uint64 zobrist, int16 alpha, int16 beta, uint8 pliesRemaining) {
+		Entry entry = table[index(zobrist)];
+		if (zobrist == entry.zobrist && entry.score != SCORE_SENTINAL) { 
+			if (entry.depth >= pliesRemaining) {
+				if (entry.nodeType == Exact) return {Score, entry.score};
+				else if (entry.nodeType == LowerBound && entry.score >= beta) return {Score, entry.score};
+				else if (entry.nodeType == UpperBound && entry.score <= alpha) return {Score, entry.score};
+		
+				if (entry.nodeType == LowerBound) return {AlphaIncrease, std::max(alpha, entry.score)};
+				else if (entry.nodeType == UpperBound) return {BetaIncrease, std::min(beta, entry.score)};
+			}
+		}
+		return { None, -1};
+	};
+
+	inline Move getTTMove(uint64 zobrist) {
+		Entry entry = table[index(zobrist)];
+		if (zobrist == entry.zobrist) return entry.bestMove;
+		return NULL_MOVE;
+	}
+} TranspositionTable;

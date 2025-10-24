@@ -7,6 +7,9 @@
 #include "Move.h"
 #include "../helpers/Zobrist.h"
 
+struct Move;
+struct MoveInfo;
+
 typedef struct GameState {
 
 	std::array<Piece, 64> board;

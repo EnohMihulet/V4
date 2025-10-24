@@ -153,3 +153,52 @@ engine_4
 	  Sum (tracked): 4,932,643.00μs
 	  Sum (tracked): 4,932.64ms
 	──────────────────────────────────────────────────────────
+
+engine_5
+	Killer moves
+	History heuristic
+	Counter moves
+	Move scoring balancing
+
+	──────────────────────────────────────────────────────────
+	Depth 10
+	  Best move: a2a3
+	  Time elapsed: 5,000.00ms
+	  Zobrist: 0xb,d3d,357,696,2fa,df2
+	──────────────────────────────────────────────────────────
+	  Nodes searched:      6,365,392
+	  Pruned nodes:        15,577,948
+	  Beta cut-offs:       606,595
+	──────────────────────────────────────────────────────────
+	  TT probes:           1,069,507
+	  TT hits:             462,953
+	  TT useful hits:      254,712
+	  TT cutoff hits:      252,702
+	──────────────────────────────────────────────────────────
+	  TT stores (total):   816,791
+		• Exact stores:     3,151
+		• Lower-bound stores:606,595
+		• Upper-bound stores:207,045
+	──────────────────────────────────────────────────────────
+
+	──────────────────────────────────────────────────────────
+	Times
+	  Total time: 5,000ms
+	  Evaluation time: 2,381,383.88μs
+	  Transposition look-up time: 26,243.00μs
+	  Transposition insertion time: 9,099.62μs
+	  Game state check time: 4,821.54μs
+	  Pick context setup time: 7,860.96μs
+	──────────────────────────────────────────────────────────
+	  Move generation time: 515,010.88μs
+	  Move scoring time: 282,405.17μs
+	  Move picking time: 436,644.50μs
+	  Move making time: 479,912.04μs
+	  Move unmaking time: 399,784.50μs
+	──────────────────────────────────────────────────────────
+	  Repetition push time: 15,155.25μs
+	  Repetition pop time: 11,035.71μs
+	──────────────────────────────────────────────────────────
+	  Sum (tracked): 4,569,357.00μs
+	  Sum (tracked): 4,569.36ms
+	──────────────────────────────────────────────────────────

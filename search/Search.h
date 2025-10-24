@@ -1,11 +1,10 @@
 #pragma once
 
 #include "../chess/GameState.h"
-#include "../helpers/Timer.h"
 #include "../search/MoveSorter.h"
-#include "../search/TranspositionTable.h"
 
 constexpr uint64 TIME_PER_MOVE = 5000;
+constexpr uint64 MAX_PLY = 30;
 
 typedef struct SearchContext {
 	uint64 startTime;
@@ -14,6 +13,10 @@ typedef struct SearchContext {
 } SearchContext;
 
 Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
+
+enum MoveBucket : uint8 {
+	B_TT, B_PV, B_Promo, B_GoodCap, B_Killer1, B_Counter, B_Killer2, B_QuietHist, B_BadCap, B_Other, B_Count
+};
 
 typedef struct SearchStats {
 	uint64 nodes = 0;
@@ -29,6 +32,12 @@ typedef struct SearchStats {
 	uint64 ttStoresExact = 0;
 	uint64 ttStoresLower = 0;
 	uint64 ttStoresUpper = 0;
+
+	// uint64 plyNodes[MAX_PLY] = {};
+	// uint64 legalMoves[MAX_PLY] = {};
+	// uint64 cutoffCount[MAX_PLY] = {};
+	// uint64 cutoffIndexSum[MAX_PLY] = {};
+	// uint64 firstMoveCutoffs[MAX_PLY] = {};
 } SearchStats;
 
 typedef struct SearchTimes {
@@ -53,7 +62,7 @@ typedef struct SearchTimes {
 } SearchTimes;
 
 typedef struct MovePool {
-	std::array<MoveList, 30> pool;
+	std::array<MoveList, MAX_PLY> pool;
 
 	MoveList& getMoveList(uint8 depth) {
 		pool[depth].clear();
@@ -62,7 +71,7 @@ typedef struct MovePool {
 } MovePool;
 
 typedef struct MoveScorePool {
-	std::array<ScoreList, 30> pool;
+	std::array<ScoreList, MAX_PLY> pool;
 
 	ScoreList& getScoreList(uint8 depth) {
 		pool[depth].clear();

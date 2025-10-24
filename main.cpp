@@ -20,7 +20,6 @@ int main() {
 	std::vector<MoveInfo> history;
 	history.reserve(256);
 
-
 	std::string command;
 	while (std::getline(std::cin, command)) {
 		if (command == "uci") {
@@ -62,7 +61,7 @@ int main() {
 				std::istringstream moves(command.substr(movesPos + 6));
 				std::string moveStr;
 				while (moves >> moveStr) {
-					Move move(moveStr);
+					Move move(gameState, moveStr);
 					gameState.makeMove(move, history);
 				}
 			}
@@ -75,6 +74,7 @@ int main() {
 			while (ss >> token) if (token == "depth") ss >> depth;
 
 			Move bestMove = iterativeDeepeningSearch(gameState, history);
+			std::cout << gameState.toFenString() << std::endl;
 			std::cout << "bestmove " << bestMove.moveToString() << std::endl;
 		}
 

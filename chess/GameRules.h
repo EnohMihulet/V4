@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "../movegen/MoveGen.h"
+#include "Common.h"
 
 
 typedef struct RepetitionTable {
@@ -50,3 +51,7 @@ typedef struct RepetitionTable {
 } RepetitionTable;
 
 bool isInsufficientMaterial(const GameState& gameState);
+
+SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repTable, uint16 moveCount);
+
+

@@ -83,8 +83,11 @@ enum SQ {
 enum Color { White = 0, Black = 1 };
 enum PieceIndex { WPawn = 0, WKnight = 1, WBishop = 2, WRook = 3, WQueen = 4, WKing = 5, BPawn = 6, BKnight = 7, BBishop = 8, BRook = 9, BQueen = 10, BKing = 11};
 enum BitboardIndex { AllIndex = 12, WhiteIndex = 13, BlackIndex = 14 };
+
 enum GameResult { InProgress = 0, WhiteWin = 1, BlackWin = 2, Stalemate = 3, AgreeToDraw = 4, ThreeFoldRepetition = 5, FiftyMoveRule = 6, InsufficientMaterial = 7,
 		WhiteTimeOut = 8, BlackTimeOut = 9, WhiteResign = 10, BlackResign = 11 }; 
+
+enum SearchGameResult { NotDone, Draw, Checkmate };
 
 constexpr int8 STANDARD_PIECE_VALUES[12] = {1,3,3,5,9,0,1,3,3,5,9,0};
 constexpr uint8 EMPTY = 15;

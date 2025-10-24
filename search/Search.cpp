@@ -13,11 +13,17 @@
 #include "../chess/GameState.h"
 #include "../chess/GameRules.h"
 #include "../helpers/GameStateHelper.h"
+#include "../helpers/Timer.h"
 #include "../movegen/MoveGen.h"
 
 TranspositionTable g_TranspositionTable;
+MoveTable g_MoveTable;
+HistoryTable g_HistoryTable;
+CounterMoveTable g_CounterMoveTable;
+
 RepetitionTable g_GameRepetitionHistory;
 RepetitionTable g_SearchRepetitionStack;
+std::vector<Move> g_MoveStack;
 
 MovePool g_MovePool;
 MoveScorePool g_ScoreMovePool;
@@ -42,7 +48,7 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 void printSearchTimes(const SearchTimes& t);
 #endif
 
-void clearTranspositionTable() { g_TranspositionTable.clear_table(); }
+void clearTranspositionTable() { g_TranspositionTable.clearTable(); }
 
 int16 quiescenceSearch(GameState& gameState, std::vector<MoveInfo>& history, Move pvMove, int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining) {
 	
@@ -73,8 +79,9 @@ int16 quiescenceSearch(GameState& gameState, std::vector<MoveInfo>& history, Mov
 
 	if (movesSize == 0) return isCheck ? NEG_INF + pliesFromRoot : 0;
 
-	PickMoveContext pickMoveContext = {g_ScoreQuiesencePool.getScoreList(pliesFromRoot), pvMove, entry.bestMove, 0, movesSize};
-	scoreMoves(gameState, moves, pickMoveContext);
+	PickMoveContext pickMoveContext = {g_ScoreMovePool.getScoreList(pliesFromRoot), pvMove, 
+					   entry.bestMove, g_MoveTable.table[pliesFromRoot], 0, movesSize};
+	scoreMoves(gameState, moves, pickMoveContext, g_HistoryTable, g_CounterMoveTable, g_MoveStack.back());
 	Move bestMoveInThisPos = moves.list[0];
 	int16 originalAlpha = alpha;
 
@@ -120,7 +127,7 @@ Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& histo
 	#endif
 
 	for (int16 depth = 1; depth < 100; depth++) {
-		// std::cout << depth << std::endl;
+		std::cout << depth << std::endl;
 		g_SearchRepetitionStack = g_GameRepetitionHistory;
 
 		#ifdef DEBUG_MODE
@@ -159,7 +166,6 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 	if (pliesRemaining == 0) {
 		g_StartTime = cntvct();
 		auto eval = quiescenceSearch(gameState, history, context.bestMoveThisIteration, alpha, beta, 0, 5);
-		// auto eval = evaluate(gameState, gameState.colorToMove);
 		times.evaluation += cntvct() - g_StartTime;
 		return eval;
 	}
@@ -168,30 +174,12 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 
 	stats.ttProbes++;
 	g_StartTime = cntvct();
-	Entry entry = g_TranspositionTable.table[g_TranspositionTable.index(gameState.zobristHash)];
-	if (gameState.zobristHash == entry.zobrist && entry.score != SCORE_SENTINAL) {
-		stats.ttHits++;
-		if (entry.depth >= pliesRemaining) {
-			stats.ttHitsUseful++;
-
-			if (entry.nodeType == Exact && entry.depth >= pliesRemaining) {
-				stats.ttHitCutoffs++;
-				times.transpositionLookUp += cntvct() - g_StartTime;
-				return entry.score;
-			} else if (entry.nodeType == LowerBound && entry.score >= beta) {
-				stats.ttHitCutoffs++;
-				times.transpositionLookUp += cntvct() - g_StartTime;
-				return entry.score;
-			} else if (entry.nodeType == UpperBound && entry.score <= alpha) {
-				stats.ttHitCutoffs++;
-				times.transpositionLookUp += cntvct() - g_StartTime;
-				return entry.score;
-			}
-			if (entry.nodeType == LowerBound) alpha = std::max(alpha, entry.score);
-			else if (entry.nodeType == UpperBound) beta = std::min(beta, entry.score);
-		}
-	}
+	ttLookUpData ttData = g_TranspositionTable.lookUp(gameState.zobristHash, alpha, beta, pliesRemaining, stats);
 	times.transpositionLookUp += cntvct() - g_StartTime;
+
+	if (ttData.type == Score) return ttData.value;
+	if (ttData.type == AlphaIncrease) alpha = ttData.value;
+	else if (ttData.type == BetaIncrease) beta = ttData.value;
 
 	g_StartTime = cntvct();
 	auto& moves = g_MovePool.getMoveList(pliesFromRoot);
@@ -200,41 +188,24 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 	uint16 movesSize = moves.back;
 
 	g_StartTime = cntvct();
-	if (gameState.halfMoves >= 50) {
-		times.gameResultCheck += cntvct() - g_StartTime;
-		return 0;
-	}
-	if (g_SearchRepetitionStack.isRepeated(gameState.zobristHash)) {
-		times.gameResultCheck += cntvct() - g_StartTime;
-		return 0;
-	}
-	if (isInsufficientMaterial(gameState)) {
-		times.gameResultCheck += cntvct() - g_StartTime;
-		return 0;
-	}
-	if (movesSize == 0) {
-		Bitboard kingPos = gameState.colorToMove == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
-		bool isCheck = isSquareAttacked(gameState, kingPos, gameState.colorToMove == White ? Black : White);
-		if (isCheck) {
-			// if (pliesFromRoot == 0) std::cout << "CHECKMATE" << std::endl;
-			times.gameResultCheck += cntvct() - g_StartTime;
-			return NEG_INF + pliesFromRoot;
-		}
-
-		times.gameResultCheck += cntvct() - g_StartTime;
-		return 0;
-	}
+	auto gameResult = getSearchGameResult(gameState, g_SearchRepetitionStack, movesSize);
 	times.gameResultCheck += cntvct() - g_StartTime;
+	if (gameResult == Draw) return 0;
+	if (gameResult == Checkmate) return NEG_INF + pliesFromRoot;
 
 	Move bestMoveInThisPos = moves.list[0];
 	int16 originalAlpha = alpha;
 
 	g_StartTime = cntvct();
-	PickMoveContext pickMoveContext = {g_ScoreMovePool.getScoreList(pliesFromRoot), context.bestMoveThisIteration, entry.bestMove, 0, movesSize};
+	PickMoveContext pickMoveContext = {g_ScoreMovePool.getScoreList(pliesFromRoot), context.bestMoveThisIteration, 
+					   g_TranspositionTable.getTTMove(gameState.zobristHash), g_MoveTable.table[pliesFromRoot], 0, movesSize};
 	times.pickContextSetup += cntvct() - g_StartTime;
 
+	int16 historyBonus = pliesRemaining * pliesRemaining;
+	Move prevMove = g_MoveStack.empty() ? NULL_MOVE : g_MoveStack.back();
+
 	g_StartTime = cntvct();
-	scoreMoves(gameState, moves, pickMoveContext);
+	scoreMoves(gameState, moves, pickMoveContext, g_HistoryTable, g_CounterMoveTable, prevMove);
 	times.moveScoring += cntvct() - g_StartTime;
 
 	for (uint8 i = 0; i < movesSize; i++) {
@@ -247,6 +218,7 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 		Move move = pickMove(moves, pickMoveContext);
 		times.movePicking += cntvct() - g_StartTime;
 
+		g_MoveStack.push_back(move);
 		g_StartTime = cntvct();
 		gameState.makeMove(move, history);
 		times.moveMaking += cntvct() - g_StartTime;
@@ -264,20 +236,28 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 		g_StartTime = cntvct();
 		gameState.unmakeMove(move, history);
 		times.moveUnmaking += cntvct() - g_StartTime;
+		g_MoveStack.pop_back();
 
 		if (eval > alpha) {
 			bestMoveInThisPos = move;
 			alpha = eval;
 
-			if (pliesFromRoot == 0) {
-				context.bestMoveThisIteration = move;
-			}
+			if (pliesFromRoot == 0) context.bestMoveThisIteration = move;
 		}
 		if (alpha >= beta) {
+			g_MoveTable.storeEntry(pliesFromRoot, move);
+			if (!move.isCapture()) {
+				g_MoveTable.storeEntry(pliesFromRoot, move);
+				if (prevMove.val != NULL_MOVE.val) {
+					g_CounterMoveTable.addMove(gameState.colorToMove, prevMove.getStartSquare(), prevMove.getTargetSquare(), move);
+      				}
+				g_HistoryTable.update(gameState.colorToMove, move.getStartSquare(), move.getTargetSquare(), historyBonus);
+			}
 			stats.prunedNodes += movesSize - (i+1);
 			stats.betaCutOffs += 1;
 			break;
 		}
+		if (!move.isCapture()) g_HistoryTable.update(gameState.colorToMove, move.getStartSquare(), move.getTargetSquare(), -historyBonus / 16);
 	}
 
 	stats.ttStores++;
@@ -301,41 +281,28 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 
 	if (context.searchCanceled) return 0;
 
-	Entry entry = g_TranspositionTable.table[g_TranspositionTable.index(gameState.zobristHash)];
-	if (gameState.zobristHash == entry.zobrist && entry.score != SCORE_SENTINAL) { 
-		if (entry.depth >= pliesRemaining) {
-			if (entry.nodeType == Exact && entry.depth >= pliesRemaining) return entry.score;
-			else if (entry.nodeType == LowerBound && entry.score >= beta) return entry.score;
-			else if (entry.nodeType == UpperBound && entry.score <= alpha) return entry.score;
-
-	
-			if (entry.nodeType == LowerBound) alpha = std::max(alpha, entry.score);
-			else if (entry.nodeType == UpperBound) beta = std::min(beta, entry.score);
-		}
-	}
+	ttLookUpData ttData = g_TranspositionTable.lookUp(gameState.zobristHash, alpha, beta, pliesRemaining);
+	if (ttData.type == Score) return ttData.value;
+	if (ttData.type == AlphaIncrease) alpha = ttData.value;
+	else if (ttData.type == BetaIncrease) beta = ttData.value;
 
 	auto& moves = g_MovePool.getMoveList(pliesFromRoot);
 	generateAllMoves(gameState, moves, gameState.colorToMove);
 	uint16 movesSize = moves.back;
 
-	if (gameState.halfMoves >= 50) return 0;
-	if (g_SearchRepetitionStack.isRepeated(gameState.zobristHash)) return 0;
-	if (isInsufficientMaterial(gameState)) return 0;
-	if (movesSize == 0) {
-		Bitboard kingPos = gameState.colorToMove == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
-		bool isCheck = isSquareAttacked(gameState, kingPos, gameState.colorToMove == White ? Black : White);
-		if (isCheck) {
-			return NEG_INF + pliesFromRoot;
-		}
-
-		return 0;
-	}
+	auto gameResult = getSearchGameResult(gameState, g_SearchRepetitionStack, movesSize);
+	if (gameResult == Draw) return 0;
+	if (gameResult == Checkmate) return NEG_INF + pliesFromRoot;
 
 	Move bestMoveInThisPos = moves.list[0];
 	int16 originalAlpha = alpha;
 
-	PickMoveContext pickMoveContext = {g_ScoreMovePool.getScoreList(pliesFromRoot), context.bestMoveThisIteration, entry.bestMove, 0, movesSize};
-	scoreMoves(gameState, moves, pickMoveContext);
+	PickMoveContext pickMoveContext = {g_ScoreMovePool.getScoreList(pliesFromRoot), context.bestMoveThisIteration, 
+					   g_TranspositionTable.getTTMove(gameState.zobristHash), g_MoveTable.table[pliesFromRoot], 0, movesSize};
+
+	Move prevMove = g_MoveStack.empty() ? NULL_MOVE : g_MoveStack.back();
+	int16 historyBonus = pliesRemaining*pliesRemaining;
+	scoreMoves(gameState, moves, pickMoveContext, g_HistoryTable, g_CounterMoveTable, prevMove);
 
 	for (uint8 i = 0; i < movesSize; i++) {
 		if (getTimeElapsed(context.startTime) >= TIME_PER_MOVE) {
@@ -344,6 +311,7 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 		}
 
 		Move move = pickMove(moves, pickMoveContext);
+		g_MoveStack.push_back(move);
 		gameState.makeMove(move, history);
 		g_SearchRepetitionStack.push(gameState.zobristHash);
 
@@ -351,6 +319,7 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 
 		g_SearchRepetitionStack.pop(gameState.zobristHash);
 		gameState.unmakeMove(move, history);
+		g_MoveStack.pop_back();
 
 		if (eval > alpha) {
 			bestMoveInThisPos = move;
@@ -358,7 +327,17 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 
 			if (pliesFromRoot == 0) context.bestMoveThisIteration = move;
 		}
-		if (alpha >= beta) break;
+		if (alpha >= beta) {
+			if (!move.isCapture()) {
+				g_MoveTable.storeEntry(pliesFromRoot, move);
+				if (prevMove.val != NULL_MOVE.val) {
+					g_CounterMoveTable.addMove(gameState.colorToMove, prevMove.getStartSquare(), prevMove.getTargetSquare(), move);
+				}
+				g_HistoryTable.update(gameState.colorToMove, move.getStartSquare(), move.getTargetSquare(), historyBonus);
+			}
+			break;
+		}
+		if (!move.isCapture()) g_HistoryTable.update(gameState.colorToMove, move.getStartSquare(), move.getTargetSquare(), -historyBonus / 16);
 	}
 
 	Entry e{gameState.zobristHash, bestMoveInThisPos, alpha, pliesRemaining, g_TranspositionTable.getNodeType(alpha, beta, originalAlpha)};

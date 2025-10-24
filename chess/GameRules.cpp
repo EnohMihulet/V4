@@ -27,3 +27,16 @@ bool isInsufficientMaterial(const GameState& gameState) {
 
 	return true;
 }
+
+SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repTable, uint16 moveCount) {
+	if (gameState.halfMoves >= 50) return Draw;
+	if (repTable.isRepeated(gameState.zobristHash)) return Draw;
+	if (isInsufficientMaterial(gameState)) return Draw;
+	if (moveCount == 0) {
+		Bitboard kingPos = gameState.colorToMove == White ? gameState.bitboards[WKing] : gameState.bitboards[BKing];
+		bool isCheck = isSquareAttacked(gameState, kingPos, gameState.colorToMove == White ? Black : White);
+		if (isCheck) return Checkmate;
+		return Draw;
+	}
+	return NotDone;
+}

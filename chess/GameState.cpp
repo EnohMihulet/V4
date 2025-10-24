@@ -241,6 +241,7 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 		colorToMove = White;
 		fullMoves++;
 	}
+
 	history.push_back(moveInfo);
 }
 
