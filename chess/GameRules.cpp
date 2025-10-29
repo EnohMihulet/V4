@@ -40,3 +40,14 @@ SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repT
 	}
 	return NotDone;
 }
+
+SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repTable, uint16 moveCount, bool isCheck) {
+	if (moveCount == 0) {
+		if (isCheck) return Checkmate;
+		return Draw;
+	}
+	if (gameState.halfMoves >= 50) return Draw;
+	if (repTable.isRepeated(gameState.zobristHash)) return Draw;
+	if (isInsufficientMaterial(gameState)) return Draw;
+	return NotDone;
+}

@@ -10,6 +10,21 @@ enum LookUpType {None, Score, AlphaIncrease, BetaIncrease};
 constexpr uint32 TABLE_SIZE = 524288;
 constexpr int16 SCORE_SENTINAL = -3103;
 
+constexpr int16 MATE = 3200;
+constexpr int16 MATE_BUFFER = 512;
+
+inline bool isMateScore(int s) { return std::abs(s) > MATE - MATE_BUFFER; }
+
+inline int16 toTTScore(int16 s, uint8 pliesFromRoot) {
+	if (!isMateScore(s)) return s;
+	return (s > 0) ? (s + pliesFromRoot) : (s - pliesFromRoot);
+}
+
+inline int16 fromTTScore(int16 s, uint8 pliesFromRoot) {
+	if (!isMateScore(s)) return s;
+	return (s > 0) ? (s - pliesFromRoot) : (s + pliesFromRoot);
+}
+
 typedef struct Entry {
 	uint64 zobrist;
 	Move bestMove;
@@ -46,10 +61,10 @@ typedef struct TranspositionTable {
 		table[i] = entry;
 	}
 
-	inline int16 getEval(uint64 zobrist) const {
-		const Entry& entry = table[index(zobrist)];
-		return (entry.zobrist == zobrist) ? entry.score : SCORE_SENTINAL;
-	}
+//	inline int16 getEval(uint64 zobrist) const {
+//		const Entry& entry = table[index(zobrist)];
+//		return (entry.zobrist == zobrist) ? entry.score : SCORE_SENTINAL;
+//	}
 
 	inline NodeType getNodeType(int16 alpha, int16 beta, int16 originalAlpha) const {
 		if (alpha >= beta) return LowerBound;
@@ -70,11 +85,11 @@ typedef struct TranspositionTable {
 				}
 				if (entry.nodeType == LowerBound && entry.score >= beta) {
 					stats.ttHitCutoffs++; 
-					return {Score, entry.score};
+					return {BetaIncrease, entry.score};
 				}
 				if (entry.nodeType == UpperBound && entry.score <= alpha) {
 					stats.ttHitCutoffs++; 
-					return {Score, entry.score};
+					return {AlphaIncrease, entry.score};
 				}
 				if (entry.nodeType == LowerBound) return {AlphaIncrease, std::max(alpha, entry.score)};
 				else if (entry.nodeType == UpperBound) return {BetaIncrease, std::min(beta, entry.score)};
@@ -88,8 +103,8 @@ typedef struct TranspositionTable {
 		if (zobrist == entry.zobrist && entry.score != SCORE_SENTINAL) { 
 			if (entry.depth >= pliesRemaining) {
 				if (entry.nodeType == Exact) return {Score, entry.score};
-				else if (entry.nodeType == LowerBound && entry.score >= beta) return {Score, entry.score};
-				else if (entry.nodeType == UpperBound && entry.score <= alpha) return {Score, entry.score};
+				else if (entry.nodeType == LowerBound && entry.score >= beta) return {BetaIncrease, entry.score};
+				else if (entry.nodeType == UpperBound && entry.score <= alpha) return {AlphaIncrease, entry.score};
 		
 				if (entry.nodeType == LowerBound) return {AlphaIncrease, std::max(alpha, entry.score)};
 				else if (entry.nodeType == UpperBound) return {BetaIncrease, std::min(beta, entry.score)};

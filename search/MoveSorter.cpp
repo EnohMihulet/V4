@@ -22,8 +22,9 @@ void printMovesAndScores(GameState& gameState) {
 	std::cout << "Best Move: " << move.moveToString() << std::endl;
 }
 
-void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, HistoryTable& historyTable, CounterMoveTable& counterMoveTable, Move prevMove) {
-	Move counterMove = counterMoveTable.getMove(state.colorToMove, prevMove.getStartSquare(), prevMove.getTargetSquare());
+void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, HistoryTable& historyTable, CounterMoveTable& counterTable, FollowUpMoveTable& followUpTable, std::vector<Move>& moveStack) {
+	Move counterMove = counterTable.getMove(state, moveStack);
+	Move followUpMove = followUpTable.getMove(state, moveStack); 
 	for (uint16 i = 0; i < context.size; i++) {
 		Move move = moves.list[i];
 
@@ -59,6 +60,9 @@ void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, His
 			}
 			else if (move.val == counterMove.val) {
 				context.scores.push(COUNTER_MOVE_SCORE);
+			}
+			else if (move.val == followUpMove.val) {
+				context.scores.push(FOLLOW_UP_MOVE_SCORE);
 			}
 			else if (move.val == context.killerMoves.move2.val) {
 				context.scores.push(KILLER_MOVE_2_SCORE);

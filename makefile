@@ -1,5 +1,5 @@
 CXX      = clang++
-CXXFLAGS = -std=c++20 -Wall -Wextra -I./chess -I./movegen -I./helpers
+CXXFLAGS = -std=c++23 -Wall -Wextra -I./chess -I./movegen -I./helpers
 
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2)
 SDL2_LIBS   := $(shell pkg-config --libs sdl2)

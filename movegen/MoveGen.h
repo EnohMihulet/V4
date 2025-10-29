@@ -20,6 +20,7 @@ void generateRookMoves(GameState& gameState, MoveList& moves, Color us, Bitboard
 void generateQueenMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 void generateKingMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask);
 void generateAllMoves(GameState& gameState, MoveList& moves, Color us);
+void generateAllMoves(GameState& gameState, MoveList& moves, Color us, bool& isCheck);
 void generateAllMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);
 
 void generatePawnCaptureMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays);

@@ -2,6 +2,7 @@
 
 #include "../chess/GameState.h"
 #include "../search/MoveSorter.h"
+#include "Common.h"
 
 constexpr uint64 TIME_PER_MOVE = 5000;
 constexpr uint64 MAX_PLY = 30;
@@ -9,13 +10,13 @@ constexpr uint64 MAX_PLY = 30;
 typedef struct SearchContext {
 	uint64 startTime;
 	Move bestMoveThisIteration = 0;
+	bool fullSearch = true;
 	bool searchCanceled;
 } SearchContext;
 
-Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
 
 enum MoveBucket : uint8 {
-	B_TT, B_PV, B_Promo, B_GoodCap, B_Killer1, B_Counter, B_Killer2, B_QuietHist, B_BadCap, B_Other, B_Count
+	B_PV, B_TT, B_Promo, B_GoodCap, B_Killer1, B_Counter, B_FollowUp, B_Killer2, B_QuietHist, B_BadCap, B_Other, B_Count
 };
 
 typedef struct SearchStats {
@@ -33,32 +34,37 @@ typedef struct SearchStats {
 	uint64 ttStoresLower = 0;
 	uint64 ttStoresUpper = 0;
 
-	// uint64 plyNodes[MAX_PLY] = {};
-	// uint64 legalMoves[MAX_PLY] = {};
-	// uint64 cutoffCount[MAX_PLY] = {};
-	// uint64 cutoffIndexSum[MAX_PLY] = {};
-	// uint64 firstMoveCutoffs[MAX_PLY] = {};
+	uint64 plyNodes[MAX_PLY] = {};
+	uint64 legalMoves[MAX_PLY] = {};
+	uint64 cutoffCount[MAX_PLY] = {};
+	uint64 cutoffIndexSum[MAX_PLY] = {};
+	uint64 firstMoveCutoffs[MAX_PLY] = {};
+
+	uint64 bucketTried[B_Count] = {};
+	uint64 bucketCutoffs[B_Count] = {};
+	uint64 bucketIndexSum[B_Count] = {};
+	uint64 bucketFirstCutoffs[B_Count] = {};
 } SearchStats;
 
 typedef struct SearchTimes {
-	uint64 total;
+	uint64 total = 0;
 
-	uint64 transpositionLookUp;
-	uint64 transpositionInsertion;
+	uint64 transpositionLookUp = 0;
+	uint64 transpositionInsertion = 0;
 
-	uint64 evaluation;
-	uint64 gameResultCheck;
-	uint64 pickContextSetup;
+	uint64 evaluation = 0;
+	uint64 gameResultCheck = 0;
+	uint64 pickContextSetup = 0;
 
-	uint64 moveGeneration;
-	uint64 moveScoring;
-	uint64 movePicking;
+	uint64 moveGeneration = 0;
+	uint64 moveScoring = 0;
+	uint64 movePicking = 0;
 
-	uint64 moveMaking;
-	uint64 moveUnmaking;
+	uint64 moveMaking = 0;
+	uint64 moveUnmaking = 0;
 
-	uint64 repetitionPush;
-	uint64 repetitionPop;
+	uint64 repetitionPush = 0;
+	uint64 repetitionPop = 0;
 } SearchTimes;
 
 typedef struct MovePool {
@@ -89,6 +95,32 @@ typedef struct QuiescencePool {
 	}
 } QuiescencePool;
 
+constexpr std::array<std::array<uint8, MAX_MOVE_COUNT>, MAX_PLY> generateLateMoveReduction() {
+	std::array<std::array<uint8, MAX_MOVE_COUNT>, MAX_PLY> r;
+	for (uint8 ply = 0; ply < MAX_PLY; ply++) {
+		for (uint8 m = 0; m < MAX_MOVE_COUNT; m++) {
+			if (ply < 5 || m < 2) {
+				r[ply][m] = 0;
+				continue;
+			}
+			uint8 lp = uint32_log2(ply);
+			uint8 lm = uint32_log2(m);
+			uint8 reduction = lp * lm / 4;
+
+			if (lp >= 3 || lm >= 3) reduction += 1;
+
+			reduction = std::min(reduction, (uint8)3);
+			uint8 maxPly = (ply > 2 ? ply - 2 : 0);
+			r[ply][m] = std::min(reduction, maxPly);
+		}
+	}
+	return r;
+}
+
+constexpr std::array<std::array<uint8, MAX_MOVE_COUNT>, MAX_PLY> LMR_TABLE = generateLateMoveReduction();
+
+Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
+
 // Debug version
 int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining, SearchStats& stats, SearchTimes& times);
@@ -98,3 +130,7 @@ int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, Sear
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining);
 
 void clearTranspositionTable();
+
+uint8 getLMR(Move move, uint8 depth, uint8 moveNum, bool isCheck, bool inPV, Move ttMove, MTEntry killers, int16 histScore);
+
+MoveBucket getBucketType(GameState& state, Move move, Move pvMove, Move ttMove, uint8 plies);

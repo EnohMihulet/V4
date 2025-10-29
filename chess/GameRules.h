@@ -54,4 +54,4 @@ bool isInsufficientMaterial(const GameState& gameState);
 
 SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repTable, uint16 moveCount);
 
-
+SearchGameResult getSearchGameResult(GameState& gameState, RepetitionTable& repTable, uint16 moveCount, bool isCheck);

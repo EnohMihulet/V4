@@ -1,4 +1,6 @@
 #pragma once
+#include <cassert>
+#include <bit>
 #include <cstdint>
 #include <iostream>
 #include <ostream>
@@ -160,4 +162,9 @@ static inline char pieceToChar(Piece p) {
 		case EMPTY:return '\0';
 	}
 	return '\0';
+}
+
+constexpr uint32 uint32_log2(uint32 v) {
+	assert(v != 0);
+	return std::bit_width(v) - 1;
 }

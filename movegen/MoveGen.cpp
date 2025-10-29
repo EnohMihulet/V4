@@ -647,6 +647,29 @@ void generateAllMoves(GameState& gameState, MoveList& moves, Color us) {
 	generateKingMoves(gameState, moves, us, checkMask);
 }
 
+void generateAllMoves(GameState& gameState, MoveList& moves, Color us, bool& isCheck) {
+	Bitboard pinnedPieces = 0;
+	Bitboard checkMask = 0;
+	std::array<Bitboard, 64> pinnedRays;
+	computeCheckAndPinMasks(gameState, us, checkMask, pinnedPieces, pinnedRays);
+
+
+	isCheck = false;
+	if (checkMask == 0ULL) {
+		isCheck = true;
+		generateKingMoves(gameState, moves, us, checkMask);
+		return;
+	}
+	else if (~checkMask != 0ULL) isCheck = true;
+
+	generatePawnMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKnightMoves(gameState, moves, us, checkMask, pinnedPieces);
+	generateBishopMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateRookMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateQueenMoves(gameState, moves, us, checkMask, pinnedPieces, pinnedRays);
+	generateKingMoves(gameState, moves, us, checkMask);
+}
+
 void generateAllMoves(GameState& gameState, MoveList& moves, Color us, Bitboard& checkMask, Bitboard& pinnedPieces, std::array<Bitboard, 64>& pinnedRays) {
 	pinnedPieces = 0;
 	checkMask = 0;
