@@ -426,6 +426,7 @@ void GameState::tempUnmakeMove(Move move, Piece capturedPiece) {
 
 }
 
+
 void GameState::setPiece(uint16 square, Piece piece) {
 	board[square] = piece;
 	Bitboard bb = (1ULL << square);

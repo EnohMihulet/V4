@@ -31,6 +31,9 @@ typedef struct GameState {
 	Piece tempMakeMove(Move move);
 	void tempUnmakeMove(Move move, Piece capturedPiece);
 
+	// void makeNullMove();
+	// void unmakeNullMove();
+
 	void setPiece(uint16 square, Piece piece);
 	void clearSquare(uint16 square);
 	Piece pieceAt(uint16 sq) const;
