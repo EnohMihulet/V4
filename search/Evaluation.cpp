@@ -1,12 +1,10 @@
-#ifdef DEBUG_EVAL
-#include <iostream>
-#endif
-
+#include "Common.h"
 #include "Evaluation.h"
 #include "PieceSquareTables.h"
 
 int16 calculateMgWeight(const GameState& gameState) {
 	int16 mgWeight = 0;
+
 	mgWeight += __builtin_popcountll(gameState.bitboards[WKnight]);
 	mgWeight += __builtin_popcountll(gameState.bitboards[BKnight]);
 	mgWeight += __builtin_popcountll(gameState.bitboards[WBishop]);
@@ -19,68 +17,420 @@ int16 calculateMgWeight(const GameState& gameState) {
 	return mgWeight;
 }
 
-int16 evaluate(const GameState& gameState, Color color) {
-	int16 mgWeight = calculateMgWeight(gameState);
-	int16 egWeight = TOTAL_PHASE - mgWeight;
+void initEval(GameState& gameState, EvalState& eval, Color us) {
+	eval.phase = calculateMgWeight(gameState);
 
-	float mgFactor = (float) mgWeight / TOTAL_PHASE;
-	float egFactor = (float) egWeight / TOTAL_PHASE;
-
-
-	EvalComponents comps;
-	comps.pawns = evaluatePawns(gameState, mgFactor, egFactor);
-	comps.knights = evaluateKnights(gameState, mgFactor, egFactor);
-	comps.bishops = evaluateBishops(gameState, mgFactor, egFactor);
-	comps.rooks = evaluateRooks(gameState, mgFactor, egFactor);
-	comps.queens = evaluateQueen(gameState, mgFactor, egFactor);
-	comps.kings = evaluateKing(gameState, mgFactor, egFactor);
-
-	int16 score = comps.pawns + comps.knights + comps.bishops + comps.rooks + comps.queens + comps.kings;
-	return color == White ? score : -score;
+	evaluatePawns(gameState, eval, us);
+	evaluateKnights(gameState, eval, us);
+	evaluateBishops(gameState, eval, us);
+	evaluateRooks(gameState, eval, us);
+	evaluateQueen(gameState, eval, us);
+	evaluateKing(gameState, eval, us);
 }
 
-int16 evaluate(const GameState& gameState) {
-	int16 mgWeight = calculateMgWeight(gameState);
-	int16 egWeight = TOTAL_PHASE - mgWeight;
+void evaluatePawns(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
 
-	float mgFactor = (float) mgWeight / TOTAL_PHASE;
-	float egFactor = (float) egWeight / TOTAL_PHASE;
+	Bitboard allyPawns = gameState.bitboards[us == White ? WPawn : BPawn];
+	Bitboard enemyPawns = gameState.bitboards[us == White ? BPawn : WPawn];
+	Bitboard bb = allyPawns;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = us == White ? sq : sq ^ 56;
+		eval.mgSide[us] += MG_PSQT[WPawn][sq];
+		eval.egSide[us] += EG_PSQT[WPawn][sq];
+		eval.mgSide[us] += MG_PIECE_VALUES[WPawn];
+		eval.egSide[us] += EG_PIECE_VALUES[WPawn];
 
+		bb &= bb - 1;
+	}
 
-	EvalComponents comps;
-	comps.pawns = evaluatePawns(gameState, mgFactor, egFactor);
-	comps.knights = evaluateKnights(gameState, mgFactor, egFactor);
-	comps.bishops = evaluateBishops(gameState, mgFactor, egFactor);
-	comps.rooks = evaluateRooks(gameState, mgFactor, egFactor);
-	comps.queens = evaluateQueen(gameState, mgFactor, egFactor);
-	comps.kings = evaluateKing(gameState, mgFactor, egFactor);
+	bb = enemyPawns;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = them == White ? sq : sq ^ 56;
+		eval.mgSide[them] += MG_PSQT[WPawn][sq];
+		eval.egSide[them] += EG_PSQT[WPawn][sq];
+		eval.mgSide[them] += MG_PIECE_VALUES[WPawn];
+		eval.egSide[them] += EG_PIECE_VALUES[WPawn];
 
-	int16 score = comps.pawns + comps.knights + comps.bishops + comps.rooks + comps.queens + comps.kings;
+		bb &= bb - 1;
+	}
+
+//	updatePawnStructureScore(gameState, delta, move);
+
+	return;
+}
+
+void evaluateKnights(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+
+	Bitboard allyKnights = gameState.bitboards[us == White ? WKnight : BKnight];
+	Bitboard enemyKnights = gameState.bitboards[us == White ? BKnight : WKnight];
+	
+	uint8 allyPawnCount = __builtin_popcountll(gameState.bitboards[us == White ? WPawn : BPawn]); 
+	uint8 enemyPawnCount = __builtin_popcountll(gameState.bitboards[them == White ? WPawn : BPawn]); 
+	assert(allyPawnCount >= 0 && allyPawnCount <= 8 && enemyPawnCount >= 0 && enemyPawnCount <= 8);
+
+	Bitboard bb = allyKnights;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = us == White ? sq : sq ^ 56;
+		eval.mgSide[us] += MG_PSQT[WKnight][sq];
+		eval.egSide[us] += EG_PSQT[WKnight][sq];
+		eval.mgSide[us] += MG_PIECE_VALUES[WKnight];
+		eval.egSide[us] += EG_PIECE_VALUES[WKnight];
+
+		eval.knightAdj[us] += KNIGHT_ADJUSTMENT[allyPawnCount];
+
+		bb &= bb - 1;
+	}
+
+	bb = enemyKnights;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = them == White ? sq : sq ^ 56;
+		eval.mgSide[them] += MG_PSQT[WKnight][sq];
+		eval.egSide[them] += EG_PSQT[WKnight][sq];
+		eval.mgSide[them] += MG_PIECE_VALUES[WKnight];
+		eval.egSide[them] += EG_PIECE_VALUES[WKnight];
+
+		eval.knightAdj[them] += KNIGHT_ADJUSTMENT[enemyPawnCount];
+
+		bb &= bb - 1;
+	}
+
+	if (__builtin_popcountll(allyKnights) >= 2) eval.knightPair[us] = KNIGHT_PAIR;
+	if (__builtin_popcountll(enemyKnights) >= 2) eval.knightPair[them] = KNIGHT_PAIR;
+
+	return;
+}
+
+void evaluateBishops(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+
+	Bitboard allyBishops = gameState.bitboards[us == White ? WBishop : BBishop];
+	Bitboard enemyBishops = gameState.bitboards[us == White ? BBishop : WBishop];
+	Bitboard bb = allyBishops;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = us == White ? sq : sq ^ 56;
+		eval.mgSide[us] += MG_PSQT[WBishop][sq];
+		eval.egSide[us] += EG_PSQT[WBishop][sq];
+		eval.mgSide[us] += MG_PIECE_VALUES[WBishop];
+		eval.egSide[us] += EG_PIECE_VALUES[WBishop];
+
+		bb &= bb - 1;
+	}
+
+	bb = enemyBishops;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = them == White ? sq : sq ^ 56;
+		eval.mgSide[them] += MG_PSQT[WBishop][sq];
+		eval.egSide[them] += EG_PSQT[WBishop][sq];
+		eval.mgSide[them] += MG_PIECE_VALUES[WBishop];
+		eval.egSide[them] += EG_PIECE_VALUES[WBishop];
+
+		bb &= bb - 1;
+	}
+
+	if (__builtin_popcountll(allyBishops) >= 2) eval.bishopPair[us] = BISHOP_PAIR;
+	if (__builtin_popcountll(enemyBishops) >= 2) eval.bishopPair[them] = BISHOP_PAIR;
+
+	return;
+}
+
+void evaluateRooks(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+
+	Bitboard allyRooks = gameState.bitboards[us == White ? WRook : BRook];
+	Bitboard enemyRooks = gameState.bitboards[us == White ? BRook: WRook];
+	uint8 allyPawnCount = __builtin_popcountll(gameState.bitboards[us == White ? WPawn : BPawn]); 
+	uint8 enemyPawnCount = __builtin_popcountll(gameState.bitboards[them == White ? WPawn : BPawn]); 
+	assert(allyPawnCount >= 0 && allyPawnCount <= 8 && enemyPawnCount >= 0 && enemyPawnCount <= 8);
+
+	Bitboard bb = allyRooks;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = us == White ? sq : sq ^ 56;
+		eval.mgSide[us] += MG_PSQT[WRook][sq];
+		eval.egSide[us] += EG_PSQT[WRook][sq];
+		eval.mgSide[us] += MG_PIECE_VALUES[WRook];
+		eval.egSide[us] += EG_PIECE_VALUES[WRook];
+
+		eval.rookAdj[us] += ROOK_ADJUSTMENT[allyPawnCount];
+
+		bb &= bb - 1;
+	}
+
+	bb = enemyRooks;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = them == White ? sq : sq ^ 56;
+		eval.mgSide[them] += MG_PSQT[WRook][sq];
+		eval.egSide[them] += EG_PSQT[WRook][sq];
+		eval.mgSide[them] += MG_PIECE_VALUES[WRook];
+		eval.egSide[them] += EG_PIECE_VALUES[WRook];
+
+		eval.rookAdj[them] += ROOK_ADJUSTMENT[enemyPawnCount];
+
+		bb &= bb - 1;
+	}
+
+	if (__builtin_popcountll(allyRooks) >= 2) eval.rookPair[us] = ROOK_PAIR;
+	if (__builtin_popcountll(enemyRooks) >= 2) eval.rookPair[them] = ROOK_PAIR;
+
+	return;
+}
+
+void evaluateQueen(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+
+	Bitboard allyQueens = gameState.bitboards[us == White ? WQueen : BQueen];
+	Bitboard enemyQueens = gameState.bitboards[us == White ? BQueen : WQueen];
+	Bitboard bb = allyQueens;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = us == White ? sq : sq ^ 56;
+		eval.mgSide[us] += MG_PSQT[WQueen][sq];
+		eval.egSide[us] += EG_PSQT[WQueen][sq];
+		eval.mgSide[us] += MG_PIECE_VALUES[WQueen];
+		eval.egSide[us] += EG_PIECE_VALUES[WQueen];
+
+		bb &= bb - 1;
+	}
+
+	bb = enemyQueens;
+	while (bb) {
+		uint8 sq = __builtin_ctzll(bb);
+		sq = them == White ? sq : sq ^ 56;
+		eval.mgSide[them] += MG_PSQT[WQueen][sq];
+		eval.egSide[them] += EG_PSQT[WQueen][sq];
+		eval.mgSide[them] += MG_PIECE_VALUES[WQueen];
+		eval.egSide[them] += EG_PIECE_VALUES[WQueen];
+
+		bb &= bb - 1;
+	}
+
+	return;
+}
+
+void evaluateKing(GameState& gameState, EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+
+	Bitboard allyKing = gameState.bitboards[us == White ? WKing : BKing];
+	Bitboard enemyKing = gameState.bitboards[us == White ? BKing : WKing];
+	assert(allyKing);
+	assert(enemyKing);
+
+	uint8 sq = __builtin_ctzll(allyKing);
+	sq = us == White ? sq : sq ^ 56;
+	eval.mgSide[us] += MG_PSQT[WKing][sq];
+	eval.egSide[us] += EG_PSQT[WKing][sq];
+	eval.mgSide[us] += MG_PIECE_VALUES[WKing];
+	eval.egSide[us] += EG_PIECE_VALUES[WKing];
+
+	sq = __builtin_ctzll(enemyKing);
+	sq = them == White ? sq : sq ^ 56;
+	eval.mgSide[them] += MG_PSQT[WKing][sq];
+	eval.egSide[them] += EG_PSQT[WKing][sq];
+	eval.mgSide[them] += MG_PIECE_VALUES[WKing];
+	eval.egSide[them] += EG_PIECE_VALUES[WKing];
+
+	return;
+}
+
+void updateEval(GameState& gameState, Move move, Color us, EvalState& eval, std::vector<EvalDelta>& evalStack) {
+	EvalDelta delta{};
+	Piece moved = gameState.pieceAt(move.getStartSquare());
+	Piece capture = move.isEnPassant() ? us == White ? BPawn : WPawn : gameState.pieceAt(move.getTargetSquare());
+
+	switch (moved) {
+		case WPawn: case BPawn:
+			updatePawnScore(gameState, delta, move, us);
+			break;
+		case WKnight: case BKnight:
+			updateKnightScore(gameState, delta, move, us);
+			break;
+		case WBishop: case BBishop:
+			updateBishopScore(gameState, delta, move, us);
+			break;
+		case WRook: case BRook:
+			updateRookScore(gameState, delta, move, us);
+			break;
+		case WQueen: case BQueen:
+			updateQueenScore(gameState, delta, move, us);
+			break;
+		case WKing: case BKing:
+			updateKingScore(gameState, delta, move, us);
+			break;
+		default: break;
+	}
+
+	switch (capture) {
+		case WPawn: case BPawn:
+			updatePawnScore(gameState, delta, move, us, true);
+			break;
+		case WKnight: case BKnight:
+			delta.phase -= MG_WEIGHT_TABLE[capture];
+			updateKnightScore(gameState, delta, move, us, true);
+			break;
+		case WBishop: case BBishop:
+			delta.phase -= MG_WEIGHT_TABLE[capture];
+			updateBishopScore(gameState, delta, move, us, true);
+			break;
+		case WRook: case BRook:
+			delta.phase -= MG_WEIGHT_TABLE[capture];
+			updateRookScore(gameState, delta, move, us, true);
+			break;
+		case WQueen: case BQueen:
+			delta.phase -= MG_WEIGHT_TABLE[capture];
+			updateQueenScore(gameState, delta, move, us, true);
+			break;
+		default: break;
+	}
+
+	applyEvalDelta(eval, delta);
+	evalStack.push_back(delta);
+}
+
+void applyEvalDelta(EvalState& evalState, EvalDelta& evalDelta) {
+	evalState.phase += evalDelta.phase;
+	for (uint8 c = 0; c < 2; c++) {
+		evalState.mgSide[c] += evalDelta.mgSide[c];
+		evalState.egSide[c] += evalDelta.egSide[c];
+		evalState.bishopPair[c] += evalDelta.bishopPair[c];
+		evalState.knightPair[c] += evalDelta.knightPair[c];
+		evalState.rookPair[c] += evalDelta.rookPair[c];
+		evalState.kingSafety[c] += evalDelta.kingSafety[c];
+		evalState.pawnStructure[c] += evalDelta.pawnStructure[c];
+		evalState.knightAdj[c] += evalDelta.knightAdj[c];
+		evalState.rookAdj[c] += evalDelta.rookAdj[c];
+	}
+}
+
+void undoEvalUpdate(EvalState& evalState, std::vector<EvalDelta>& evalStack) {
+	EvalDelta evalDelta = evalStack.back();
+	evalStack.pop_back();
+	evalState.phase -= evalDelta.phase;
+	for (uint8 c = 0; c < 2; c++) {
+		evalState.mgSide[c] -= evalDelta.mgSide[c];
+		evalState.egSide[c] -= evalDelta.egSide[c];
+		evalState.bishopPair[c] -= evalDelta.bishopPair[c];
+		evalState.knightPair[c] -= evalDelta.knightPair[c];
+		evalState.rookPair[c] -= evalDelta.rookPair[c];
+		evalState.kingSafety[c] -= evalDelta.kingSafety[c];
+		evalState.pawnStructure[c] -= evalDelta.pawnStructure[c];
+		evalState.knightAdj[c] -= evalDelta.knightAdj[c];
+		evalState.rookAdj[c] -= evalDelta.rookAdj[c];
+	}
+}
+
+int16 getEval(EvalState& eval, Color us) {
+	Color them = us == White ? Black : White;
+	int16 mgPhase = std::min((int16)TOTAL_PHASE, eval.phase);
+	int16 egPhase = TOTAL_PHASE - mgPhase;
+	int16 score = (mgPhase * (eval.mgSide[us] - eval.mgSide[them]) + egPhase * (eval.egSide[us] - eval.egSide[them])) / TOTAL_PHASE;
+	score += eval.bishopPair[us] - eval.bishopPair[them] + eval.knightPair[us] - eval.knightPair[them] + eval.rookPair[us] - eval.rookPair[them];
+	score += (eval.pawnStructure[us] - eval.pawnStructure[them]) + (eval.kingSafety[us] - eval.kingSafety[them]);
+	score += (eval.knightAdj[us] - eval.knightAdj[them]) + (eval.rookAdj[us] - eval.rookAdj[them]);
 	return score;
 }
 
-int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor) {
-	// TODO: MAYBE CONNECTED PASSED PAWNS and BACKWARD PAWNS
+void updatePawnScore(GameState& gameState, EvalDelta& delta, Move move, Color us, bool captured) {
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
+
+	if (captured) {
+		if (move.isEnPassant()) to += us == White ? -8 : 8;
+		delta.mgSide[them] -= MG_PSQT[WPawn][them == White ? to : to ^ 56];
+		delta.egSide[them] -= EG_PSQT[WPawn][them == White ? to : to ^ 56];
+		delta.mgSide[them] -= MG_PIECE_VALUES[WPawn];
+		delta.egSide[them] -= EG_PIECE_VALUES[WPawn];
+
+		delta.knightAdj[them] -= __builtin_popcountll(gameState.bitboards[them == White ? WKnight : BKnight]) * KNIGHT_ADJUSTMENT_PER;
+		delta.rookAdj[them] -= __builtin_popcountll(gameState.bitboards[them == White ? WRook : BRook]) * ROOK_ADJUSTMENT_PER;
+
+//		// If a pawn captured this pawn, the structure is already updated
+//		if (gameState.pieceAt(move.getStartSquare()) != them == Black ? WPawn : BPawn) {
+//			updatePawnStructureScore(gameState, delta, move, true);
+//		}
+		return;
+	}
+
+	if (move.isPromotion()) {
+		delta.mgSide[us] -= MG_PIECE_VALUES[WPawn];
+		delta.egSide[us] -= EG_PIECE_VALUES[WPawn];
+
+		Bitboard knights = gameState.bitboards[us == White ? WKnight : BKnight];
+		Bitboard rooks = gameState.bitboards[us == White ? WRook : BRook];
+		int knightCount = __builtin_popcountll(knights);
+		int rookCount = __builtin_popcountll(rooks);
+
+		delta.knightAdj[us] -= knightCount*KNIGHT_ADJUSTMENT_PER;
+		delta.rookAdj[us] -= rookCount*ROOK_ADJUSTMENT_PER;
+
+		if (move.isQueenPromotion()) {
+			delta.phase += 4; // NOTE: This is temporary so that the assertion that a static eval equals the incremental eval holds
+			delta.mgSide[us] += MG_PIECE_VALUES[WQueen];
+			delta.egSide[us] += EG_PIECE_VALUES[WQueen];
+			delta.mgSide[us] += MG_PSQT[WQueen][us == White ? to : to ^ 56] - MG_PSQT[WPawn][us == White ? from : from ^ 56];
+			delta.egSide[us] += EG_PSQT[WQueen][us == White ? to : to ^ 56] - EG_PSQT[WPawn][us == White ? from : from ^ 56];
+		}
+		else if (move.isRookPromotion()) {
+			delta.phase += 2; // NOTE: This is temporary so that the assertion that a static eval equals the incremental eval holds
+			delta.mgSide[us] += MG_PIECE_VALUES[WRook];
+			delta.egSide[us] += EG_PIECE_VALUES[WRook];
+			delta.mgSide[us] += MG_PSQT[WRook][us == White ? to : to ^ 56] - MG_PSQT[WPawn][us == White ? from : from ^ 56];
+			delta.egSide[us] += EG_PSQT[WRook][us == White ? to : to ^ 56] - EG_PSQT[WPawn][us == White ? from : from ^ 56];
+
+			if (rookCount == 1) delta.rookPair[us] += ROOK_PAIR;
+		}
+		else if (move.isKnightPromotion()) {
+			delta.phase += 1; // NOTE: This is temporary so that the assertion that a static eval equals the incremental eval holds
+			delta.mgSide[us] += MG_PIECE_VALUES[WKnight];
+			delta.egSide[us] += EG_PIECE_VALUES[WKnight];
+			delta.mgSide[us] += MG_PSQT[WKnight][us == White ? to : to ^ 56] - MG_PSQT[WPawn][us == White ? from : from ^ 56];
+			delta.egSide[us] += EG_PSQT[WKnight][us == White ? to : to ^ 56] - EG_PSQT[WPawn][us == White ? from : from ^ 56];
+
+			if (knightCount == 1) delta.knightPair[us] += KNIGHT_PAIR;
+		}
+		else if (move.isBishopPromotion()) {
+			delta.phase += 1; // NOTE: This is temporary so that the assertion that a static eval equals the incremental eval holds
+			delta.mgSide[us] += MG_PIECE_VALUES[WBishop];
+			delta.egSide[us] += EG_PIECE_VALUES[WBishop];
+			delta.mgSide[us] += MG_PSQT[WBishop][us == White ? to : to ^ 56] - MG_PSQT[WPawn][us == White ? from : from ^ 56];
+			delta.egSide[us] += EG_PSQT[WBishop][us == White ? to : to ^ 56] - EG_PSQT[WPawn][us == White ? from : from ^ 56];
+
+			Bitboard bishops = gameState.bitboards[us == White ? WBishop : BBishop];
+			int pre = __builtin_popcountll(bishops);
+			if (pre == 1) delta.bishopPair[us] += BISHOP_PAIR;
+		}
+	}
+	else {
+		delta.mgSide[us] += MG_PSQT[WPawn][us == White ? to : to ^ 56] - MG_PSQT[WPawn][us == White ? from : from ^ 56];
+		delta.egSide[us] += EG_PSQT[WPawn][us == White ? to : to ^ 56] - EG_PSQT[WPawn][us == White ? from : from ^ 56];
+	}
+
+//	updatePawnStructureScore(gameState, delta, move);
+
+	return;
+}
+
+void updatePawnStructureScore(GameState& gameState, EvalDelta &delta, Move move, Color us, bool captured) {
+	// TODO: Incrementally update structure score
 	Bitboard wPawns = gameState.bitboards[WPawn];
 	Bitboard bPawns = gameState.bitboards[BPawn];
-
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 wPassedPawnScore = 0;
-	int16 bPassedPawnScore = 0;
-	int16 wIsolatedPawnScore = 0;
-	int16 bIsolatedPawnScore = 0;
-	int16 wDoubledPawnScore = 0;
-	int16 bDoubledPawnScore = 0;
-	int16 materialScore = 0;
+	delta.pawnStructure[White] = 0;
+	delta.pawnStructure[Black] = 0;
 
 	Bitboard bb = wPawns;
 	while (bb) {
 		uint16 sq = __builtin_ctzll(bb);
 		uint16 file = sq & 7;
 		uint16 rank = sq / 8;
-
-		wPieceTableScore += PAWN_TABLE[sq];
 
 		Bitboard filesMask = FILES[file];
 		if (file == 0) filesMask |= FILES[file+1];
@@ -93,13 +443,13 @@ int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor) 
 		}
 
 		if ((bPawns & filesMask & ranksMask) == 0) {
-			wPassedPawnScore += egFactor * PASSED_PAWNS[rank];
+			delta.pawnStructure[White] += PASSED_PAWNS[rank];
 		}
 		if (__builtin_popcountll(wPawns & filesMask) == 1) {
-			wIsolatedPawnScore += ISOLATED_PAWNS;
+			delta.pawnStructure[White] += ISOLATED_PAWNS;
 		}
 		if (__builtin_popcountll(wPawns & FILES[file]) > 1) {
-			wDoubledPawnScore += DOUBLED_PAWNS;
+			delta.pawnStructure[White] += DOUBLED_PAWNS;
 		}
 		
 		bb &= bb - 1;
@@ -110,8 +460,6 @@ int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor) 
 		uint16 sq = __builtin_ctzll(bb);
 		uint16 file = sq & 7;
 		uint16 rank = sq / 8;
-
-		bPieceTableScore += PAWN_TABLE[sq ^ 56];
 
 		Bitboard filesMask = FILES[file];
 		if (file == 0) filesMask |= FILES[file+1];
@@ -124,361 +472,120 @@ int16 evaluatePawns(const GameState& gameState, float mgFactor, float egFactor) 
 		}
 
 		if ((wPawns & filesMask & ranksMask) == 0) {
-			bPassedPawnScore += egFactor * PASSED_PAWNS[7 - rank];
+			delta.pawnStructure[Black] = PASSED_PAWNS[7 - rank];
 		}
 		if ((wPawns & (filesMask ^ FILES[file])) == 0) {
-			bIsolatedPawnScore += ISOLATED_PAWNS;
+			delta.pawnStructure[Black] = ISOLATED_PAWNS;
 		}
 		if (__builtin_popcountll(bPawns & FILES[file]) > 1) {
-			bDoubledPawnScore += DOUBLED_PAWNS;
+			delta.pawnStructure[Black] = DOUBLED_PAWNS;
 		}
 
 		bb &= bb - 1;
 	}
-
-	int16 wPawnCount = __builtin_popcountll(wPawns); 
-	int16 bPawnCount = __builtin_popcountll(bPawns); 
-	materialScore += (wPawnCount - bPawnCount) * PIECE_VALUES[WPawn];
-
-	int16 wScore = wPieceTableScore + wPassedPawnScore + wIsolatedPawnScore + wDoubledPawnScore;
-	int16 bScore = bPieceTableScore + bPassedPawnScore + bIsolatedPawnScore + bDoubledPawnScore;
-	int16 total = wScore - bScore + materialScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "Pawn Eval: wPT=" << wPieceTableScore
-		<< " wPassed=" << wPassedPawnScore
-		<< " wIsolated=" << wIsolatedPawnScore
-		<< " wDoubled=" << wDoubledPawnScore
-		<< " | bPT=" << bPieceTableScore
-		<< " bPassed=" << bPassedPawnScore
-		<< " bIsolated=" << bIsolatedPawnScore
-		<< " bDoubled=" << bDoubledPawnScore
-		<< " | mat=" << materialScore
-		<< " | total=" << total
-		<< "\n";
-	#endif
-
-	return total;
 }
 
-int16 evaluateKnights(const GameState& gameState, float mgFactor, float egFactor) {
-	// TODO: MOBILITY SCORE
-	Bitboard wKnights = gameState.bitboards[WKnight];
-	Bitboard bKnights = gameState.bitboards[BKnight];
-	
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 materialScore = 0;
-	int16 wKnightPairBonus = 0;
-	int16 bKnightPairBonus = 0;
-	int16 wKnightAdjustment = 0;
-	int16 bKnightAdjustment = 0;
+void updateKnightScore(GameState& gameState, EvalDelta& delta, Move move, Color us, bool captured) {
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
 
-	Bitboard bb = wKnights;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		wPieceTableScore += KNIGHT_TABLE[sq];
-		bb &= bb - 1;
+	if (captured) {
+		delta.mgSide[them] -= MG_PSQT[WKnight][them == White ? to : to ^ 56];
+		delta.egSide[them] -= EG_PSQT[WKnight][them == White ? to : to ^ 56];
+		delta.mgSide[them] -= MG_PIECE_VALUES[WKnight];
+		delta.egSide[them] -= EG_PIECE_VALUES[WKnight];
+
+		int16 pawnCount = __builtin_popcountll(gameState.bitboards[them == White ? WPawn : BPawn]);
+		delta.knightAdj[them] -= KNIGHT_ADJUSTMENT[pawnCount];
+
+		Bitboard knights = gameState.bitboards[them == White ? WKnight : BKnight];
+		int pre = __builtin_popcountll(knights);
+		if (pre == 2) delta.knightPair[them] += -KNIGHT_PAIR;
 	}
-	bb = bKnights;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		bPieceTableScore += KNIGHT_TABLE[sq^56];
-		bb &= bb - 1;
+	else {
+		delta.mgSide[us] += MG_PSQT[WKnight][us == White ? to : to ^ 56] - MG_PSQT[WKnight][us == White ? from : from ^ 56];
+		delta.egSide[us] += EG_PSQT[WKnight][us == White ? to : to ^ 56] - EG_PSQT[WKnight][us == White ? from : from ^ 56];
 	}
-
-	int16 wKnightCount = __builtin_popcountll(wKnights);
-	int16 bKnightCount = __builtin_popcountll(bKnights);
-	materialScore = (wKnightCount - bKnightCount) * PIECE_VALUES[WKnight];
-
-	if (wKnightCount > 1) wKnightPairBonus = KNIGHT_PAIR;
-	if (bKnightCount > 1) bKnightPairBonus = KNIGHT_PAIR;
-
-	int16 wPawnCount = __builtin_popcountll(gameState.bitboards[WPawn]); 
-	int16 bPawnCount = __builtin_popcountll(gameState.bitboards[BPawn]); 
-	
-	wKnightAdjustment = wKnightCount * KNIGHT_ADJUSTMENT[wPawnCount];
-	bKnightAdjustment = bKnightCount * KNIGHT_ADJUSTMENT[bPawnCount];
-
-	int16 wScore = wPieceTableScore + wKnightPairBonus + wKnightAdjustment;
-	int16 bScore = bPieceTableScore + bKnightPairBonus + bKnightAdjustment;
-	int16 total = wScore - bScore + materialScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "Knight Eval: wPT=" << wPieceTableScore
-		<< " wCount=" << wKnightCount
-		<< " | bPT=" << bPieceTableScore
-		<< " bCount=" << bKnightCount
-		<< " | mat=" << materialScore
-		<< " wPair=" << wKnightPairBonus
-		<< " bPair=" << bKnightPairBonus
-		<< " wAdj=" << wKnightAdjustment
-		<< " bAdj=" << bKnightAdjustment
-		<< " | total=" << total
-		<< "\n";
-	#endif
-
-	return total;
 }
 
+void updateBishopScore(GameState& gameState, EvalDelta& delta, Move move, Color us, bool captured) {
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
 
-int16 evaluateBishops(const GameState& gameState, float mgFactor, float egFactor) {
-	// TODO: MOBILITY SCORE
-	Bitboard wBishops = gameState.bitboards[WBishop];
-	Bitboard bBishops = gameState.bitboards[BBishop];
-	
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 materialScore = 0;
-	int16 wBishopPairBonus = 0;
-	int16 bBishopPairBonus = 0;
+	if (captured) {
+		delta.mgSide[them] -= MG_PSQT[WBishop][them == White ? to : to ^ 56];
+		delta.egSide[them] -= EG_PSQT[WBishop][them == White ? to : to ^ 56];
+		delta.mgSide[them] -= MG_PIECE_VALUES[WBishop];
+		delta.egSide[them] -= EG_PIECE_VALUES[WBishop];
 
-	Bitboard bb = wBishops;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		wPieceTableScore += BISHOP_TABLE[sq];
-		bb &= bb - 1;
+		Bitboard bishops = gameState.bitboards[them == White ? WBishop : BBishop];
+		int pre = __builtin_popcountll(bishops);
+		if (pre == 2) delta.bishopPair[them] += -BISHOP_PAIR;
 	}
-
-	bb = bBishops;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		bPieceTableScore += BISHOP_TABLE[sq ^ 56];
-		bb &= bb - 1;
+	else {
+		delta.mgSide[us] += MG_PSQT[WBishop][us == White ? to : to ^ 56] - MG_PSQT[WBishop][us == White ? from : from ^ 56];
+		delta.egSide[us] += EG_PSQT[WBishop][us == White ? to : to ^ 56] - EG_PSQT[WBishop][us == White ? from : from ^ 56];
 	}
-
-	int16 wBishopCount = __builtin_popcountll(wBishops);
-	int16 bBishopCount = __builtin_popcountll(bBishops);
-	materialScore = (wBishopCount - bBishopCount) * PIECE_VALUES[WBishop];
-
-	if (wBishopCount > 1) wBishopPairBonus = BISHOP_PAIR;
-	if (bBishopCount > 1) bBishopPairBonus = BISHOP_PAIR;
-
-	int16 wScore = wPieceTableScore + wBishopPairBonus;
-	int16 bScore = bPieceTableScore + bBishopPairBonus;
-	int16 total = wScore - bScore + materialScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "Bishop Eval: wPT=" << wPieceTableScore
-		<< " wCount=" << wBishopCount
-		<< " wPair=" << wBishopPairBonus
-		<< " | bPT=" << bPieceTableScore
-		<< " bCount=" << bBishopCount
-		<< " bPair=" << bBishopPairBonus
-		<< " | mat=" << materialScore
-		<< " | total=" << total << "\n";
-	#endif
-
-	return total;
 }
 
-int16 evaluateRooks(const GameState& gameState, float mgFactor, float egFactor) {
-	// TODO: MOBILITY SCORES
-	Bitboard wRooks = gameState.bitboards[WRook];
-	Bitboard bRooks = gameState.bitboards[BRook];
-	Bitboard wPawns = gameState.bitboards[WPawn];
-	Bitboard bPawns = gameState.bitboards[BPawn];
+void updateRookScore(GameState& gameState, EvalDelta& delta, Move move, Color us, bool captured) {
+	// TODO: Open file bonus (on pawn capture or rook move update)
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
 
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 materialScore = 0;
-	int16 wRookPairBonus = 0;
-	int16 bRookPairBonus = 0;
-	int16 wOpenFileScore = 0;
-	int16 bOpenFileScore = 0;
-	int16 wRookAdjustment = 0;
-	int16 bRookAdjustment = 0;
+	if (captured) {
+		delta.mgSide[them] -= MG_PSQT[WRook][them == White ? to : to ^ 56];
+		delta.egSide[them] -= EG_PSQT[WRook][them == White ? to : to ^ 56];
+		delta.mgSide[them] -= MG_PIECE_VALUES[WRook];
+		delta.egSide[them] -= EG_PIECE_VALUES[WRook];
 
-	Bitboard bb = wRooks;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		wPieceTableScore += ROOK_TABLE[sq];
+		int16 pawnCount = __builtin_popcountll(gameState.bitboards[them == White ? WPawn : BPawn]);
+		delta.rookAdj[them] -= ROOK_ADJUSTMENT[pawnCount];
 
-		uint16 file = sq & 7;
-		Bitboard fileMask = FILES[file];
-		uint16 pawnCountInFile = __builtin_popcountll((wPawns | bPawns) & fileMask); 
-		uint16 wPawnCountInFile = __builtin_popcountll(wPawns & fileMask); 
-		
-		if (pawnCountInFile == 0) wOpenFileScore += ROOK_OPEN_FILE;
-		else if (wPawnCountInFile == 0) wOpenFileScore += ROOK_SEMI_OPEN_FILE;
-
-		bb &= bb - 1;
+		Bitboard rooks = gameState.bitboards[them == White ? WRook : BRook];
+		int pre = __builtin_popcountll(rooks);
+		if (pre == 2) delta.rookPair[them] += -ROOK_PAIR;
 	}
-
-	bb = bRooks;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		bPieceTableScore += ROOK_TABLE[sq ^ 56];
-
-		uint16 file = sq & 7;
-		Bitboard fileMask = FILES[file];
-		uint16 pawnCountInFile = __builtin_popcountll((wPawns | bPawns) & fileMask); 
-		uint16 bPawnCountInFile = __builtin_popcountll(bPawns & fileMask); 
-		
-		if (pawnCountInFile == 0) bOpenFileScore += ROOK_OPEN_FILE;
-		else if (bPawnCountInFile == 0) bOpenFileScore += ROOK_SEMI_OPEN_FILE;
-
-		bb &= bb - 1;
+	else {
+		delta.mgSide[us] += MG_PSQT[WRook][us == White ? to : to ^ 56] - MG_PSQT[WRook][us == White ? from : from ^ 56];
+		delta.egSide[us] += EG_PSQT[WRook][us == White ? to : to ^ 56] - EG_PSQT[WRook][us == White ? from : from ^ 56];
 	}
-
-	int16 wRookCount = __builtin_popcountll(wRooks);
-	int16 bRookCount = __builtin_popcountll(bRooks);
-	materialScore = (wRookCount - bRookCount) * PIECE_VALUES[WRook];
-
-	if (wRookCount > 1) wRookPairBonus = ROOK_PAIR;
-	if (bRookCount > 1) bRookPairBonus = ROOK_PAIR;
-
-	int16 wPawnCount = __builtin_popcountll(wPawns); 
-	int16 bPawnCount = __builtin_popcountll(bPawns); 
-	wRookAdjustment = wRookCount * ROOK_ADJUSTMENT[wPawnCount];
-	bRookAdjustment = bRookCount * ROOK_ADJUSTMENT[bPawnCount];
-
-	int16 wScore = wPieceTableScore + wRookPairBonus + wOpenFileScore + wRookAdjustment;
-	int16 bScore = bPieceTableScore + bRookPairBonus + bOpenFileScore + bRookAdjustment;
-	int16 total = wScore - bScore + materialScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "Rook Eval: wPT=" << wPieceTableScore
-		<< " wCount=" << wRookCount
-		<< " wPair=" << wRookPairBonus
-		<< " wFiles=" << wOpenFileScore
-		<< " wAdj=" << wRookAdjustment
-		<< " | bPT=" << bPieceTableScore
-		<< " bCount=" << bRookCount
-		<< " bPair=" << bRookPairBonus
-		<< " bFiles=" << bOpenFileScore
-		<< " bAdj=" << bRookAdjustment
-		<< " | mat=" << materialScore
-		<< " | total=" << total << "\n";
-	#endif
-
-	return total;
 }
 
-int16 evaluateQueen(const GameState& gameState, float mgFactor, float egFactor) {
-	// TODO: MOBILITY SCORES
-	Bitboard wQueens = gameState.bitboards[WQueen];
-	Bitboard bQueens = gameState.bitboards[BQueen];
+void updateQueenScore(GameState& gameState, EvalDelta& delta, Move move, Color us, bool captured) {
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
 
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 materialScore = 0;
-
-	Bitboard bb = wQueens;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		wPieceTableScore += QUEEN_TABLE[sq];
-		bb &= bb - 1;
+	if (captured) {
+		delta.mgSide[them] -= MG_PSQT[WQueen][them == White ? to : to ^ 56];
+		delta.egSide[them] -= EG_PSQT[WQueen][them == White ? to : to ^ 56];
+		delta.mgSide[them] -= MG_PIECE_VALUES[WQueen];
+		delta.egSide[them] -= EG_PIECE_VALUES[WQueen];
 	}
-
-	bb = bQueens;
-	while (bb) {
-		uint16 sq = __builtin_ctzll(bb);
-		bPieceTableScore += QUEEN_TABLE[sq ^ 56];
-		bb &= bb - 1;
+	else {
+		delta.mgSide[us] += MG_PSQT[WQueen][us == White ? to : to ^ 56] - MG_PSQT[WQueen][us == White ? from : from ^ 56];
+		delta.egSide[us] += EG_PSQT[WQueen][us == White ? to : to ^ 56] - EG_PSQT[WQueen][us == White ? from : from ^ 56];
 	}
-
-	int16 wQueenCount = __builtin_popcountll(wQueens);
-	int16 bQueenCount = __builtin_popcountll(bQueens);
-	materialScore = (wQueenCount - bQueenCount) * PIECE_VALUES[WQueen];
-
-	int16 wScore = wPieceTableScore;
-	int16 bScore = bPieceTableScore;
-	int16 total = wScore - bScore + materialScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "Queen Eval: wPT=" << wPieceTableScore
-		<< " wCount=" << wQueenCount
-		<< " | bPT=" << bPieceTableScore
-		<< " bCount=" << bQueenCount
-		<< " | mat=" << materialScore
-		<< " | total=" << total << "\n";
-	#endif
-
-	return total;
 }
 
+void updateKingScore(GameState& gameState, EvalDelta& delta, Move move, Color us) {
+	// TODO: Pawn shield, king safety, castling bonus?
+	Color them = us == White ? Black : White;
+	uint8 from = move.getStartSquare();
+	uint8 to = move.getTargetSquare();
 
-int16 evaluateKing(const GameState& gameState, float mgFactor, float egFactor) {
-	Bitboard wKing = gameState.bitboards[WKing];
-	Bitboard bKing = gameState.bitboards[BKing];
-	Bitboard wPawns = gameState.bitboards[WPawn];
-	Bitboard bPawns = gameState.bitboards[BPawn];
-
-	int16 wPieceTableScore = 0;
-	int16 bPieceTableScore = 0;
-	int16 wCastledScore = 0;
-	int16 bCastledScore = 0;
-	int16 wPawnShieldScore = 0;
-	int16 bPawnShieldScore = 0;
-
-	Bitboard bb = wKing;
-	uint16 sq;
-	if (bb) sq = __builtin_ctzll(bb);
-	else return 0;
-
-	uint16 wFile = sq & 7;
-	uint16 wRank = sq / 8;
-	wPieceTableScore = mgFactor*KING_TABLE_MG[sq] + egFactor*KING_TABLE_EG[sq];
-
-	bb = bKing;
-	if (bb) sq = __builtin_ctzll(bb);
-	else return 0;
-
-	uint16 bFile = sq & 7;
-	uint16 bRank = sq / 8;
-	bPieceTableScore = mgFactor*KING_TABLE_MG[sq^56] + egFactor*KING_TABLE_EG[sq^56];
-
-	if (__builtin_popcountll(wKing & RANK_1 & FILE_F & FILE_G & FILE_H) == 1) wCastledScore = mgFactor*CASTLED;
-	else if (__builtin_popcountll(wKing & RANK_1 & FILE_A & FILE_B & FILE_C) == 1) wCastledScore = mgFactor*CASTLED;
-
-	if (__builtin_popcountll(bKing & RANK_8 & FILE_F & FILE_G & FILE_H) == 1) bCastledScore = mgFactor*CASTLED;
-	else if (__builtin_popcountll(bKing & RANK_8 & FILE_A & FILE_B & FILE_C) == 1) bCastledScore = mgFactor*CASTLED;
-
-	Bitboard filesMask = FILES[wFile];
-	if (wFile == 0) filesMask |= FILES[wFile+1];
-	else if (wFile == 7) filesMask |= FILES[wFile-1]; 
-	else filesMask |= FILES[wFile-1] | FILES[wFile+1];
-
-	Bitboard wPawnMask = 0;
-	if (wRank < 7) {
-		wPawnMask = RANKS[wRank+1] & filesMask;
-		wPawnShieldScore += mgFactor*STRONG_PAWN_SHIELD*__builtin_popcountll(wPawns & wPawnMask);
+	delta.mgSide[us] += MG_PSQT[WKing][us == White ? to : to ^ 56] - MG_PSQT[WKing][us == White ? from : from ^ 56];
+	delta.egSide[us] += EG_PSQT[WKing][us == White ? to : to ^ 56] - EG_PSQT[WKing][us == White ? from : from ^ 56];
+	if (move.isKingSideCastle()) {
+		delta.mgSide[us] += MG_PSQT[WRook][5] - MG_PSQT[WRook][7];
+		delta.egSide[us] += EG_PSQT[WRook][5] - EG_PSQT[WRook][7];
 	}
-	if (wRank < 6) {
-		wPawnMask = RANKS[wRank+2] & filesMask;
-		wPawnShieldScore += mgFactor*MID_PAWN_SHIELD*__builtin_popcountll(wPawns & wPawnMask);
+	else if (move.isQueenSideCastle()) {
+		delta.mgSide[us] += MG_PSQT[WRook][3] - MG_PSQT[WRook][0];
+		delta.egSide[us] += EG_PSQT[WRook][3] - EG_PSQT[WRook][0];
 	}
-
-	filesMask = FILES[bFile];
-	if (bFile == 0) filesMask |= FILES[bFile+1];
-	else if (bFile == 7) filesMask |= FILES[bFile-1]; 
-	else filesMask |= FILES[bFile-1] | FILES[bFile+1];
-
-	Bitboard bPawnMask = 0;
-	if (bRank > 0) {
-		bPawnMask = RANKS[bRank-1] & filesMask;
-		bPawnShieldScore += mgFactor*STRONG_PAWN_SHIELD*__builtin_popcountll(bPawns & bPawnMask);
-	}
-	if (bRank > 1) {
-		bPawnMask = RANKS[bRank-2] & filesMask;
-		bPawnShieldScore += mgFactor*MID_PAWN_SHIELD*__builtin_popcountll(bPawns & bPawnMask);
-	}
-
-	int16 wScore = wPieceTableScore + wCastledScore + wPawnShieldScore;
-	int16 bScore = bPieceTableScore + bCastledScore + bPawnShieldScore;
-	int16 total = wScore - bScore;
-
-	#ifdef DEBUG_EVAL
-	std::cout << "King Eval: wPT=" << wPieceTableScore 
-		<< " wCastle=" << wCastledScore 
-		<< " wShield=" << wPawnShieldScore 
-		<< " | bPT=" << bPieceTableScore 
-		<< " bCastle=" << bCastledScore 
-		<< " bShield=" << bPawnShieldScore 
-		<< " | total=" << total
-		<< "\n";
-	#endif
-
-	return total;
 }

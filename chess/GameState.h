@@ -60,6 +60,7 @@ constexpr std::array<bool, 14> makeSimpleMoveArr() {
 	t[0] = true;
 	t[1] = true;
 	t[2] = true;
+	
 	return t;
 }
 

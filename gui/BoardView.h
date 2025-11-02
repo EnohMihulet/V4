@@ -22,3 +22,5 @@ void drawSelectPinnedRayIndex(GuiState& guiState);
 void drawPinnedRayBitboard(GuiState& guiState);
 
 void drawIsSquareAttacked(GameState& gameState);
+
+void drawEval(GameState& gameState, GuiState& guiState);

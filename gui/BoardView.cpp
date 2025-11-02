@@ -1,5 +1,5 @@
 #include <vector>
-
+#include <sstream>
 
 #include "../external/imgui/imgui.h"
 
@@ -57,6 +57,7 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 				else {
 					for (Move& move : guiState.selectedPieceMoves) {
 						if (index == move.getTargetSquare() && guiState.selectedPieceSq == move.getStartSquare()) {
+							updateEval(gameState, move, gameState.colorToMove, guiState.eval, guiState.evalStack);
 							gameState.makeMove(move, guiState.history);
 							guiState.movesMade.push_back(move);
 
@@ -235,6 +236,7 @@ void drawUndoButton(GameState& gameState, GuiState& guiState) {
 		if (guiState.movesMade.size() == 0) return;
 		Move move = guiState.movesMade[guiState.movesMade.size() - 1];
 		gameState.unmakeMove(move, guiState.history);
+		undoEvalUpdate(guiState.eval, guiState.evalStack);
 		guiState.movesMade.pop_back();
 		guiState.allMoves.clear();
 		generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
@@ -318,5 +320,71 @@ void drawIsSquareAttacked(GameState& gameState) {
 	Color them = gameState.colorToMove == White ? Black : White;
 	ImGui::Text(isSquareAttacked(gameState, 1ULL << sq, them) ? "TRUE" : "FALSE");
 	ImGui::End();
-	
 }
+
+
+void drawEval(GameState& gameState, GuiState& guiState) {
+	ImGui::Begin("Static Eval vs Incremental Eval");
+
+	auto drawEvalTable = [](const char* tableId, const EvalState& ev) {
+
+		auto rowSides = [](const char* label, const int16 (&arr)[2]) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn(); ImGui::TextUnformatted(label);
+			ImGui::TableNextColumn(); ImGui::Text("%hd", arr[White]);
+			ImGui::TableNextColumn(); ImGui::Text("%hd", arr[Black]);
+			ImGui::TableNextColumn(); ImGui::Text("%d", int(arr[White]) - int(arr[Black]));
+		};
+
+		if (ImGui::BeginTable(tableId, 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingFixedFit)) {
+			ImGui::TableSetupColumn("Category");
+			ImGui::TableSetupColumn("White");
+			ImGui::TableSetupColumn("Black");
+			ImGui::TableSetupColumn("Net (W-B)");
+			ImGui::TableHeadersRow();
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn(); ImGui::TextUnformatted("Phase");
+			ImGui::TableNextColumn(); ImGui::Text("%hd", ev.phase);
+			ImGui::TableNextColumn(); ImGui::Text("%hd", TOTAL_PHASE - ev.phase);
+			ImGui::TableNextColumn(); ImGui::Text("%hd", TOTAL_PHASE);
+
+			rowSides("MG Score", ev.mgSide);
+			rowSides("EG Score", ev.egSide);
+
+			rowSides("Pawn Structure", ev.pawnStructure);
+			rowSides("King Safety", ev.kingSafety);
+			rowSides("Bishop Pair", ev.bishopPair);
+			rowSides("Knight Pair", ev.knightPair);
+			rowSides("Rook Pair", ev.rookPair);
+			rowSides("Knight Adj", ev.knightAdj);
+			rowSides("Rook Adj", ev.rookAdj);
+
+			// rowSides("Knight Mobility", ev.knightMobility);
+			// rowSides("Bishop Mobility", ev.bishopMobility);
+			// rowSides("Rook Mobility", ev.rookMobility);
+			// rowSides("Queen Mobility", ev.queenMobility);
+
+			ImGui::EndTable();
+		}
+	};
+
+	{
+		std::stringstream ss;
+		EvalState staticEval{};
+		initEval(gameState, staticEval, gameState.colorToMove);
+		ss << "Static Eval: " << getEval(staticEval, gameState.colorToMove);
+		ImGui::Text("%s", ss.str().c_str());
+		drawEvalTable("Static Eval Details", staticEval);
+	}
+
+	{
+		std::stringstream ss;
+		ss << "Incremental Eval: " << getEval(guiState.eval, gameState.colorToMove);
+		ImGui::Text("%s", ss.str().c_str());
+		drawEvalTable("Incremental Eval Details", guiState.eval);
+	}
+
+	ImGui::End();
+}
+

@@ -242,7 +242,7 @@ void GameState::makeMove(Move move, std::vector<MoveInfo>& history) {
 		fullMoves++;
 	}
 
-	history.push_back(moveInfo);
+	history.push_back(std::move(moveInfo));
 }
 
 void GameState::unmakeMove(Move move, std::vector<MoveInfo>& history) {

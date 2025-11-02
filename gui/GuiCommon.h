@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../chess/Common.h"
+#include "../search/Evaluation.h"
 
 #include "../external/imgui/imgui.h"
 #include "Move.h"
@@ -24,6 +25,8 @@ static const char* BitboardStrings[BitboardStringsSize] = {"WPawns", "WKnight", 
 typedef struct GuiState {
 	std::vector<MoveInfo> history;
 	std::vector<Move> movesMade;
+	std::vector<EvalDelta> evalStack;
+	EvalState eval;
 	MoveList allMoves;
 	MoveList selectedPieceMoves;
 	Bitboard checkMask; 

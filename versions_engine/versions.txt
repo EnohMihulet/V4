@@ -272,3 +272,73 @@ engine_6:
 	  Sum (tracked): 4,439,049.00μs
 	  Sum (tracked): 4,439.05ms
 	──────────────────────────────────────────────────────────
+
+engine_7
+	Continuation Table (Counter history and followup history)
+	Optimizations to LMR for quiet moves
+	Incremental Eval
+
+	──────────────────────────────────────────────────────────
+	Depth 12
+	  Best move: b1c3
+	  Time elapsed: 5,000.00ms
+	  Zobrist: 0xbd3d3576962fadf2
+	──────────────────────────────────────────────────────────
+	  Nodes searched:             4,958,730
+	  Pruned nodes:              24,973,149
+	  Beta cutoffs:                 927,212
+	  NPS (nodes/sec):              991,746
+	──────────────────────────────────────────────────────────
+	  TT probes:                  1,074,272
+	  TT hits:                      475,747  (44.3%)
+	  TT useful hits:               426,364  (89.6% of hits)
+	  TT cutoff hits:               420,796  (88.4% of hits)
+	──────────────────────────────────────────────────────────
+	  TT stores (total):          1,074,060  (0.1% exact, 86.3% lower, 13.6% upper)
+		• Exact stores:                  635
+		• Lower-bound stores:           927,212
+		• Upper-bound stores:           146,213
+	──────────────────────────────────────────────────────────
+	  Per-ply stats:
+		• Legal moves per ply [12]: 240, 4,040, 9,014, 95,594, 178,710, 1,110,484, 1,481,056, 5,444,477, 6,161,664, 7,228,920, 6,368,334, 1,817,672
+		• Nodes per ply [13]: 12, 222, 525, 4,588, 9,161, 70,125, 119,595, 442,720, 660,414, 1,129,501, 1,234,703, 857,812, 429,352
+		• Cutoffs per ply [12]: 0, 189, 223, 3,451, 4,816, 38,985, 41,771, 177,332, 195,569, 214,408, 202,869, 47,599
+		• Avg cutoff move index: 0.00, 0.33, 0.23, 0.05, 0.15, 0.17, 0.15, 0.15, 0.19, 0.19, 0.15, 0.16, 0.00
+		• First-move cutoffs (%): 0, 95, 89, 98, 95, 98, 96, 98, 95, 97, 98, 97, 0
+	──────────────────────────────────────────────────────────
+	  Per-bucket stats:
+		Bucket                         Tried           Cutoffs          Avg cutoff idx          First-move (%)
+		PV move                       26,431             3,673                    0.00                   100.0
+		TT move                      472,812           395,348                    0.00                    99.7
+		Promotions                       156                19                    1.84                     0.0
+		Good captures                151,516           115,091                    0.01                    99.1
+		Killer 1                     488,567           384,933                    0.01                    98.9
+		Counter move                  62,776             9,730                    0.84                    22.1
+		Follow-up move                56,850             1,683                    0.48                    62.8
+		Killer 2                      63,100             5,287                    1.21                     8.0
+		Quiet history              3,375,653             8,407                    6.36                     3.4
+		Bad captures                 229,096             3,041                    26.33                     3.1
+		Other                              0                 0                    0.00                     0.0
+	──────────────────────────────────────────────────────────
+	
+	──────────────────────────────────────────────────────────
+	Times
+	  Total time: 5,000ms
+	  Evaluation time: 1,358,030.67μs
+	  Transposition look-up time: 19,107.04μs
+	  Transposition insertion time: 14,872.67μs
+	  Game state check time: 7,209.46μs
+	  Pick context setup time: 3,918.25μs
+	──────────────────────────────────────────────────────────
+	  Move generation time: 747,974.42μs
+	  Move scoring time: 763,943.08μs
+	  Move picking time: 345,081.08μs
+	  Move making time: 840,279.92μs
+	  Move unmaking time: 607,456.38μs
+	──────────────────────────────────────────────────────────
+	  Repetition push time: 12,068.46μs
+	  Repetition pop time: 10,516.67μs
+	──────────────────────────────────────────────────────────
+	  Sum (tracked): 4,730,458.00μs
+	  Sum (tracked): 4,730.46ms
+	──────────────────────────────────────────────────────────

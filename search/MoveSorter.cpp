@@ -3,6 +3,7 @@
 #include "MoveSorter.h"
 
 #include "../movegen/MoveGen.h"
+#include "Common.h"
 
 // TODO: Fix this.
 void printMovesAndScores(GameState& gameState) {
@@ -22,11 +23,18 @@ void printMovesAndScores(GameState& gameState) {
 	std::cout << "Best Move: " << move.moveToString() << std::endl;
 }
 
-void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, HistoryTable& historyTable, CounterMoveTable& counterTable, FollowUpMoveTable& followUpTable, std::vector<Move>& moveStack) {
-	Move counterMove = counterTable.getMove(state, moveStack);
-	Move followUpMove = followUpTable.getMove(state, moveStack); 
+void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, HistoryTable& historyTable, CounterHistoryTable& cHistoryTable, FollowUpHistoryTable& fHistoryTable,
+		CounterMoveTable& counterTable, FollowUpMoveTable& followUpTable, ContinuationStack& contStack) {
+	ContEntry e;
+	ContEntry e2;
+	if (contStack.at(0, e) < 0) e = {0,0};
+	if (contStack.at(1, e2) < 0) e2 = {0,0}; 
+	Move counterMove = counterTable.getMove(contStack);
+	Move followUpMove = followUpTable.getMove(contStack); 
 	for (uint16 i = 0; i < context.size; i++) {
 		Move move = moves.list[i];
+		uint8 from = move.getStartSquare();
+		uint8 to = move.getTargetSquare();
 
 		if (move.val == context.pvMove.val) {
 			context.scores.push(PV_MOVE_SCORE); 
@@ -42,8 +50,8 @@ void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, His
 			continue;
 		}
 		else if (move.isCapture()) {
-			Piece movedPiece = state.pieceAt(move.getStartSquare());
-			Piece capturedPiece = state.pieceAt(move.getTargetSquare());
+			Piece movedPiece = state.pieceAt(from);
+			Piece capturedPiece = state.pieceAt(to);
 			if (move.isEnPassant()) capturedPiece = state.colorToMove == White ? BPawn : WPawn;
 
 			uint16 mvv = STANDARD_PIECE_VALUES[capturedPiece];
@@ -68,7 +76,11 @@ void scoreMoves(GameState& state, MoveList& moves, PickMoveContext& context, His
 				context.scores.push(KILLER_MOVE_2_SCORE);
 			}
 			else {
-				context.scores.push(QUIET_BASE + historyTable.table[state.colorToMove][move.getStartSquare()][move.getTargetSquare()]);
+				Piece p = state.pieceAt(from);
+				int16 score = QUIET_BASE + historyTable.getScore(state.colorToMove, from, to);
+				score += cHistoryTable.getScore(e, p, to);
+				score += fHistoryTable.getScore(e2, p, to);
+				context.scores.push(score);
 			}
 			continue;
 		}

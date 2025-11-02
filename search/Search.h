@@ -3,6 +3,7 @@
 #include "../chess/GameState.h"
 #include "../search/MoveSorter.h"
 #include "Common.h"
+#include "Evaluation.h"
 
 constexpr uint64 TIME_PER_MOVE = 5000;
 constexpr uint64 MAX_PLY = 30;
@@ -122,15 +123,15 @@ constexpr std::array<std::array<uint8, MAX_MOVE_COUNT>, MAX_PLY> LMR_TABLE = gen
 Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
 
 // Debug version
-int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
+int16 alphaBetaSearch(GameState& gameState, EvalState& evalState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining, SearchStats& stats, SearchTimes& times);
 
 // Release version
-int16 alphaBetaSearch(GameState& gameState, std::vector<MoveInfo>& history, SearchContext& context, 
+int16 alphaBetaSearch(GameState& gameState, EvalState& evalState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining);
 
 void clearTranspositionTable();
 
-uint8 getLMR(Move move, uint8 depth, uint8 moveNum, bool isCheck, bool inPV, Move ttMove, MTEntry killers, int16 histScore);
+uint8 getLMR(Move move, uint8 depth, uint8 moveNum, bool isCheck, bool inPV, Move ttMove, MTEntry killers, uint16 histScore);
 
-MoveBucket getBucketType(GameState& state, Move move, Move pvMove, Move ttMove, uint8 plies);
+MoveBucket getBucketType(uint16 score);

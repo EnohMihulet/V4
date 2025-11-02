@@ -46,6 +46,7 @@ int main() {
 	GuiState guiState;
 	guiState.history.reserve(64);
 	guiState.movesMade.reserve(64);
+	initEval(gameState, guiState.eval, gameState.colorToMove);
 	
 	generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
 
@@ -77,6 +78,8 @@ int main() {
 		drawPinnedRayBitboard(guiState);
 		
 		drawIsSquareAttacked(gameState);
+
+		drawEval(gameState, guiState);
 
 		ImGui::Render();
 		SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
