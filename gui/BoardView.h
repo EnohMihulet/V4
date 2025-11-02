@@ -24,3 +24,5 @@ void drawPinnedRayBitboard(GuiState& guiState);
 void drawIsSquareAttacked(GameState& gameState);
 
 void drawEval(GameState& gameState, GuiState& guiState);
+
+void drawEngineMakeMove(GameState& gameState, GuiState& guiState);

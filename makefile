@@ -37,7 +37,7 @@ OBJS := $(addprefix $(OBJDIR)/,$(RAW_OBJS))
 RAW_GUI_OBJS := $(filter-out main.o,$(RAW_OBJS)) gui/BoardView.o guiMain.o
 GUI_OBJS := $(addprefix $(OBJDIR)/,$(RAW_GUI_OBJS)) $(IMGUI_OBJS)
 
-.PHONY: all debug release debug_eval gui obj clean
+.PHONY: all debug release gui obj clean
 
 all: debug
 
@@ -51,13 +51,8 @@ release: TARGET = engine
 release: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 
-debug_eval: CXXFLAGS += -g -DDEBUG_EVAL
-debug_eval: TARGET = engine-debug-eval
-debug_eval: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
-
+gui: CXXFLAGS += $(SDL2_CFLAGS) -I$(IMGUI_DIR) -I$(IMGUI_BACKENDS) -DGUI_MODE
 gui: TARGET = chess-gui
-gui: CXXFLAGS += $(SDL2_CFLAGS) -I$(IMGUI_DIR) -I$(IMGUI_BACKENDS)
 gui: $(GUI_OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(GUI_OBJS) $(SDL2_LIBS)
 
@@ -69,4 +64,4 @@ obj:
 	@mkdir -p $(sort $(dir $(OBJS) $(GUI_OBJS)))
 
 clean:
-	rm -rf $(OBJDIR) engine engine-debug engine-debug-eval chess-gui
+	rm -rf $(OBJDIR) engine engine-debug chess-gui

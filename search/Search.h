@@ -122,6 +122,9 @@ constexpr std::array<std::array<uint8, MAX_MOVE_COUNT>, MAX_PLY> LMR_TABLE = gen
 
 Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history);
 
+// Used for GUI
+Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history, std::string& headerStats, std::string& TTStats, std::string& perPlyStats, std::string& searchTimes);
+
 // Debug version
 int16 alphaBetaSearch(GameState& gameState, EvalState& evalState, std::vector<MoveInfo>& history, SearchContext& context, 
 			  int16 alpha, int16 beta, uint8 pliesFromRoot, uint8 pliesRemaining, SearchStats& stats, SearchTimes& times);
@@ -135,3 +138,15 @@ void clearTranspositionTable();
 uint8 getLMR(Move move, uint8 depth, uint8 moveNum, bool isCheck, bool inPV, Move ttMove, MTEntry killers, uint16 histScore);
 
 MoveBucket getBucketType(uint16 score);
+
+std::string getHeaderSearchStats(const SearchStats& s, int16 depth, const Move& bestMove, double elapsed_ms, uint64 zobrist);
+
+std::string getTTSearchStats(const SearchStats& s);
+
+std::string getPerPlySearchStats(const SearchStats& s);
+
+void printSearchStats(const SearchStats& s, int16 depth, const Move& bestMove, double elapsed_ms, uint64 zobrist);
+
+std::string getSearchTimes(const SearchTimes& t);
+
+void printSearchTimes(const SearchTimes& t);

@@ -6,8 +6,8 @@
 #include "../external/imgui/imgui.h"
 #include "Move.h"
 
-constexpr uint32 WINDOW_WIDTH = 1000;
-constexpr uint32 WINDOW_HEIGHT = 800;
+constexpr uint32 WINDOW_WIDTH = 1920;
+constexpr uint32 WINDOW_HEIGHT = 1080;
 
 static const ImU32 DARK_SQUARE_COLOR = IM_COL32(25, 110, 70, 255);
 static const ImU32 LIGHT_SQUARE_COLOR = IM_COL32(220, 180, 140, 255);

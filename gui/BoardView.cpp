@@ -1,5 +1,6 @@
 #include <vector>
 #include <sstream>
+#include <thread>
 
 #include "../external/imgui/imgui.h"
 
@@ -8,6 +9,7 @@
 #include "GuiCommon.h"
 #include "../chess/GameState.h"
 #include "../movegen/MoveGen.h"
+#include "../search/Search.h"
 
 
 void drawFenString(GameState &gameState) {
@@ -25,7 +27,7 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 
 	ImVec2 windowPos = ImGui::GetWindowPos();
 
-	float squareSize = 50.0f;
+	float squareSize = 100.0f;
 	int16 numCols = 8;
 	int16 numRows = 8;
 	int16 boardHeight = numRows * squareSize;
@@ -115,7 +117,7 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 			if (ch != '\0') {
 				ImFont* font = ImGui::GetFont();
 				float base = ImGui::GetFontSize();
-				float scale = 1.6f;
+				float scale = 2.0f;
 				float fsize = base * scale;
 			
 				bool is_white_piece = (ch >= 'A' && ch <= 'Z');
@@ -139,12 +141,13 @@ void drawBoard(GameState& gameState, GuiState& guiState) {
 
 	ImFont* font = ImGui::GetFont();
 	float base = ImGui::GetFontSize();
-	float labelSize = base * 0.9f;
+	float labelSize = base * 1.4f;
 
 	for (int16 col = 0; col < numCols; ++col) {
 		char fileChar[2] = { static_cast<char>('a' + col), '\0' };
 
 		ImVec2 sqCenterBottom = ImVec2( windowPos.x + col * squareSize + squareSize * 0.5f, headerMax.y + boardHeight + 2.0f);
+
 		ImVec2 fileSize = font->CalcTextSizeA(labelSize, FLT_MAX, 0.0f, fileChar);
 		ImVec2 filePosBottom = ImVec2(sqCenterBottom.x - fileSize.x * 0.5f, sqCenterBottom.y);
 
@@ -386,5 +389,41 @@ void drawEval(GameState& gameState, GuiState& guiState) {
 	}
 
 	ImGui::End();
+}
+
+
+void drawEngineMakeMove(GameState& gameState, GuiState& guiState) {
+	ImGui::Begin("Engine Options");
+
+	static bool showStats = false;
+	static std::string headerStats;
+	static std::string ttStats;
+	static std::string perPlyStats;
+	static std::string timeStats;
+
+	if (ImGui::Button("Make Engine Move")) {
+		Move move = iterativeDeepeningSearch(gameState, guiState.history, headerStats, ttStats, perPlyStats, timeStats);
+
+		updateEval(gameState, move, gameState.colorToMove, guiState.eval, guiState.evalStack);
+		gameState.makeMove(move, guiState.history);
+		guiState.movesMade.push_back(move);
+
+		guiState.selectedPieceSq = -1;
+		guiState.selectedPieceMoves.clear();
+		guiState.allMoves.clear();
+
+		generateAllMoves(gameState, guiState.allMoves, gameState.colorToMove, guiState.checkMask, guiState.pinnedPieces, guiState.pinnedRays);
+
+		ImGui::Text("%s", move.moveToString().c_str());
+		showStats = true;
+	}
+	ImGui::End();
+
+	if (showStats) {
+		if (ImGui::Begin("Header Stats", &showStats)) ImGui::TextUnformatted(headerStats.c_str()); ImGui::End();
+		ImGui::Begin("TT Stats"); ImGui::TextUnformatted(ttStats.c_str()); ImGui::End();
+		ImGui::Begin("Per Ply Stats"); ImGui::TextUnformatted(perPlyStats.c_str()); ImGui::End();
+		ImGui::Begin("Search Times"); ImGui::TextUnformatted(timeStats.c_str()); ImGui::End();
+	}
 }
 

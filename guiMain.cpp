@@ -81,6 +81,8 @@ int main() {
 
 		drawEval(gameState, guiState);
 
+		drawEngineMakeMove(gameState, guiState);
+
 		ImGui::Render();
 		SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
 		SDL_RenderClear(renderer);

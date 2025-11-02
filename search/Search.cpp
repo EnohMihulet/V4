@@ -38,20 +38,22 @@ MoveScorePool g_ScoreQuiesencePool;
 
 uint64 g_StartTime = 0;
 
-#ifdef DEBUG_MODE
 #include <iomanip>
 #include <sstream>
 #include <locale>
 
-#define CLR_RESET	"\033[0m"
-#define CLR_TITLE	"\033[36m"
-#define CLR_LABEL	"\033[33m"
-#define CLR_VALUE	"\033[37m"
-
-
-void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, double elapsed, uint64 zobrist);
-
-void printSearchTimes(const SearchTimes& t);
+#ifdef GUI_MODE
+#define CLR_RESET ""
+#define CLR_TITLE ""
+#define CLR_LABEL ""
+#define CLR_VALUE ""
+#define SEP "----------------------------------------------------------\n"
+#else
+#define CLR_RESET "\033[0m"
+#define CLR_TITLE "\033[36m"
+#define CLR_LABEL "\033[33m"
+#define CLR_VALUE "\033[37m"
+#define SEP "──────────────────────────────────────────────────────────\n"
 #endif
 
 void clearTranspositionTable() { g_TranspositionTable.clearTable(); }
@@ -120,8 +122,7 @@ int16 quiescenceSearch(GameState& gameState, EvalState& evalState, std::vector<M
 		}
 	}
 
-	Entry e{gameState.zobristHash, bestMoveInThisPos, alpha, 0, g_TranspositionTable.getNodeType(alpha, beta, originalAlpha)};
-	g_TranspositionTable.storeEntry(e);
+	g_TranspositionTable.storeEntry(gameState.zobristHash, bestMoveInThisPos, pliesFromRoot, pliesRemaining, alpha, beta, originalAlpha);
 
 	return alpha;
 }
@@ -161,6 +162,47 @@ Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& histo
 			printSearchStats(stats, depth, context.bestMoveThisIteration, totalTime, gameState.zobristHash);
 			printSearchTimes(times);
 			#endif
+			if (!context.bestMoveThisIteration.isNull() && bestMove.isNull())
+				bestMove = context.bestMoveThisIteration;
+			break;
+		}
+		if (!context.bestMoveThisIteration.isNull()) {
+			bestMove = context.bestMoveThisIteration;
+		}
+	}
+
+	return bestMove;
+}
+
+// Used for GUI
+Move iterativeDeepeningSearch(GameState& gameState, std::vector<MoveInfo>& history, std::string& headerStats, std::string& TTStats, std::string& perPlyStats, std::string& searchTimes) {
+	Move bestMove;
+	SearchContext context;
+	context.startTime = cntvct();
+	context.searchCanceled = false;
+
+	g_EvalStack.reserve(MAX_PLY);
+	EvalState evalState{};
+	initEval(gameState, evalState, gameState.colorToMove);
+
+	if (gameState.halfMoves == 0) g_GameRepetitionHistory.clear();
+
+	SearchStats stats;
+	SearchTimes times;
+
+	for (int16 depth = 1; depth < 100; depth++) {
+		std::cout << depth << std::endl;
+		g_SearchRepetitionStack = g_GameRepetitionHistory;
+
+		alphaBetaSearch(gameState, evalState, history, context, NEG_INF, POS_INF, 0, depth, stats, times);
+
+		if (context.searchCanceled) {
+			uint16 totalTime = getTimeElapsed(context.startTime);
+			headerStats = getHeaderSearchStats(stats, depth, context.bestMoveThisIteration, totalTime, gameState.zobristHash);
+			TTStats = getTTSearchStats(stats);
+			perPlyStats = getPerPlySearchStats(stats);
+			searchTimes = getSearchTimes(times);
+
 			if (!context.bestMoveThisIteration.isNull() && bestMove.isNull())
 				bestMove = context.bestMoveThisIteration;
 			break;
@@ -334,13 +376,12 @@ int16 alphaBetaSearch(GameState& gameState, EvalState& evalState, std::vector<Mo
 
 	stats.ttStores++;
 	g_StartTime = cntvct();
-	Entry e{gameState.zobristHash, bestMoveInThisPos, toTTScore(alpha, pliesFromRoot), pliesRemaining, g_TranspositionTable.getNodeType(alpha, beta, originalAlpha)};
-	switch (e.nodeType) {
+	g_TranspositionTable.storeEntry(gameState.zobristHash, bestMoveInThisPos, pliesFromRoot, pliesRemaining, alpha, beta, originalAlpha);
+	switch (g_TranspositionTable.getNodeType(alpha, beta, originalAlpha)) {
 		case Exact: stats.ttStoresExact++; break;
 		case LowerBound: stats.ttStoresLower++; break;
 		case UpperBound: stats.ttStoresUpper++; break;
 	}
-	g_TranspositionTable.storeEntry(e);
 	times.transpositionInsertion += cntvct() - g_StartTime;
 	return alpha;
 }
@@ -447,8 +488,7 @@ int16 alphaBetaSearch(GameState& gameState, EvalState& evalState, std::vector<Mo
 		}
 	}
 
-	Entry e{gameState.zobristHash, bestMoveInThisPos, toTTScore(alpha, pliesFromRoot), pliesRemaining, g_TranspositionTable.getNodeType(alpha, beta, originalAlpha)};
-	g_TranspositionTable.storeEntry(e);
+	g_TranspositionTable.storeEntry(gameState.zobristHash, bestMoveInThisPos, pliesFromRoot, pliesRemaining, alpha, beta, originalAlpha);
 	return alpha;
 }
 
@@ -479,36 +519,136 @@ uint8 getLMR(Move move, uint8 depth, uint8 moveNum, bool isCheck, bool inPV, Mov
 	return LMR_TABLE[d][moveNum];
 }
 
-#ifdef DEBUG_MODE
 struct CommaNum : std::numpunct<char> {
 	char do_thousands_sep() const override { return ','; }
 	std::string do_grouping() const override { return "\3"; }
 };
 
-void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, double elapsed_ms, uint64 zobrist)
-{
+std::string getHeaderSearchStats(const SearchStats& s, int16 depth, const Move& bestMove, double elapsed_ms, uint64 zobrist) {
 	using std::left;
 	using std::right;
 	using std::setw;
 	using std::setprecision;
 	using std::fixed;
 
-	constexpr int LABEL_W = 30;
-	constexpr int VALUE_W = 18;
+	constexpr int16 LABEL_W = 30;
+	constexpr int16 VALUE_W = 18;
+
+	std::ostringstream ss;
+	ss.imbue(std::locale(std::locale(), new CommaNum));
+
+	ss << "\n"
+	   << SEP
+	   << CLR_TITLE << "Depth " << depth << CLR_RESET << "\n"
+	   << "  Best move: " << CLR_VALUE << bestMove.moveToString() << CLR_RESET << "\n"
+	   << "  Time elapsed: " << CLR_VALUE << fixed << setprecision(2) << elapsed_ms << "ms" << CLR_RESET << "\n";
+
+	{
+		auto oldloc = ss.getloc();
+		auto oldflags = ss.flags();
+		auto oldfill = ss.fill();
+
+		ss.imbue(std::locale::classic());
+		ss << "  Zobrist: 0x"
+		   << std::hex << std::setw(16) << std::setfill('0') << zobrist
+		   << std::dec << std::setfill(oldfill) << "\n";
+
+		ss.imbue(oldloc);
+		ss.flags(oldflags);
+	}
+
+	const double secs = elapsed_ms > 0.0 ? (elapsed_ms / 1000.0) : 0.0;
+	const double nps   = secs > 0.0 ? static_cast<double>(s.nodes) / secs : 0.0;
+
+	ss << SEP
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Nodes searched:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.nodes << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Pruned nodes:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.prunedNodes << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Beta cutoffs:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.betaCutOffs << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  NPS (nodes/sec):" + CLR_RESET)
+	   << setw(VALUE_W) << right << std::fixed << setprecision(0) << nps << "\n";
+	ss << SEP;
+
+	return ss.str();
+}
+
+std::string getTTSearchStats(const SearchStats& s) {
+	using std::left;
+	using std::right;
+	using std::setw;
+	using std::setprecision;
+	using std::fixed;
+
+	constexpr int16 LABEL_W = 30;
+	constexpr int16 VALUE_W = 18;
 
 	auto pct = [](uint64 num, uint64 den) -> double {
 		return den ? (100.0 * static_cast<double>(num) / static_cast<double>(den)) : 0.0;
 	};
 
-	auto lastNonZeroIndex = [](const uint64* arr, int n) -> int {
-		for (int i = n - 1; i >= 0; --i) if (arr[i] != 0) return i;
+	std::ostringstream ss;
+	ss.imbue(std::locale(std::locale(), new CommaNum));
+
+	const double ttHitRate	  = pct(s.ttHits, s.ttProbes);
+	const double ttUsefulRate   = pct(s.ttHitsUseful, s.ttHits);
+	const double ttCutoffRate   = pct(s.ttHitCutoffs, s.ttHits);
+	const uint64 ttStoreSum	 = s.ttStoresExact + s.ttStoresLower + s.ttStoresUpper;
+
+	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT probes:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttProbes << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT hits:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttHits
+	   << "  (" << std::fixed << setprecision(1) << ttHitRate << "%)\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT useful hits:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttHitsUseful
+	   << "  (" << std::fixed << setprecision(1) << ttUsefulRate << "% of hits)\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT cutoff hits:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttHitCutoffs
+	   << "  (" << std::fixed << setprecision(1) << ttCutoffRate << "% of hits)\n"
+	   << SEP
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT stores (total):" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttStores;
+
+	if (ttStoreSum > 0) {
+		ss << "  ("
+		   << std::fixed << setprecision(1)
+		   << pct(s.ttStoresExact, ttStoreSum) << "% exact, "
+		   << pct(s.ttStoresLower, ttStoreSum) << "% lower, "
+		   << pct(s.ttStoresUpper, ttStoreSum) << "% upper)";
+	}
+	ss << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Exact stores:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttStoresExact << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Lower-bound stores:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttStoresLower << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Upper-bound stores:" + CLR_RESET)
+	   << setw(VALUE_W) << right << s.ttStoresUpper << "\n";
+
+	ss << SEP;
+
+	return ss.str();
+}
+
+std::string getPerPlySearchStats(const SearchStats& s) {
+	using std::left;
+	using std::right;
+	using std::setw;
+	using std::setprecision;
+	using std::fixed;
+
+	constexpr int16 LABEL_W = 30;
+
+	auto lastNonZeroIndex = [](const uint64* arr, int16 n) -> int16 {
+		for (int16 i = n - 1; i >= 0; --i) if (arr[i] != 0) return i;
 		return -1;
 	};
 
-	auto printList = [&](std::ostringstream& os, const uint64* arr, int n) {
-		int last = lastNonZeroIndex(arr, n);
+	auto printList = [&](std::ostringstream& os, const uint64* arr, int16 n) {
+		int16 last = lastNonZeroIndex(arr, n);
 		if (last < 0) { os << "(none)"; return; }
-		for (int i = 0; i <= last; ++i) {
+		for (int16 i = 0; i <= last; ++i) {
 			os << arr[i];
 			if (i < last) os << ", ";
 		}
@@ -531,115 +671,44 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 	std::ostringstream ss;
 	ss.imbue(std::locale(std::locale(), new CommaNum));
 
-	ss << "\n"
-	   << "──────────────────────────────────────────────────────────\n"
-	   << CLR_TITLE << "Depth " << depth << CLR_RESET << "\n"
-	   << "  Best move: " << CLR_VALUE << bestMove.moveToString() << CLR_RESET << "\n"
-	   << "  Time elapsed: " << CLR_VALUE << fixed << setprecision(2) << elapsed_ms << "ms" << CLR_RESET << "\n";
+	const int16 lastLM   = lastNonZeroIndex(s.legalMoves, MAX_PLY);
+	const int16 lastPN   = lastNonZeroIndex(s.plyNodes, MAX_PLY);
+	const int16 lastCO   = lastNonZeroIndex(s.cutoffCount, MAX_PLY);
+	const int16 lastAny  = std::max({lastLM, lastPN, lastCO});
 
-	{
-		auto oldloc = ss.getloc();
-		auto oldflags = ss.flags();
-		auto oldfill = ss.fill();
-
-		ss.imbue(std::locale::classic());
-		ss << "  Zobrist: 0x"
-		   << std::hex << std::setw(16) << std::setfill('0') << zobrist
-		   << std::dec << std::setfill(oldfill) << "\n";
-
-		ss.imbue(oldloc);
-		ss.flags(oldflags);
-	}
-
-	const double secs = elapsed_ms > 0.0 ? (elapsed_ms / 1000.0) : 0.0;
-	const double nps   = secs > 0.0 ? static_cast<double>(s.nodes) / secs : 0.0;
-
-	ss << "──────────────────────────────────────────────────────────\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Nodes searched:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.nodes << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Pruned nodes:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.prunedNodes << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Beta cutoffs:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.betaCutOffs << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  NPS (nodes/sec):" + CLR_RESET)
-	   << setw(VALUE_W) << right << std::fixed << setprecision(0) << nps << "\n";
-
-	const double ttHitRate	  = pct(s.ttHits, s.ttProbes);
-	const double ttUsefulRate   = pct(s.ttHitsUseful, s.ttHits);
-	const double ttCutoffRate   = pct(s.ttHitCutoffs, s.ttHits);
-	const uint64 ttStoreSum	 = s.ttStoresExact + s.ttStoresLower + s.ttStoresUpper;
-
-	ss << "──────────────────────────────────────────────────────────\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT probes:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttProbes << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT hits:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttHits
-	   << "  (" << std::fixed << setprecision(1) << ttHitRate << "%)\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT useful hits:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttHitsUseful
-	   << "  (" << std::fixed << setprecision(1) << ttUsefulRate << "% of hits)\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT cutoff hits:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttHitCutoffs
-	   << "  (" << std::fixed << setprecision(1) << ttCutoffRate << "% of hits)\n"
-	   << "──────────────────────────────────────────────────────────\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  TT stores (total):" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttStores;
-
-	if (ttStoreSum > 0) {
-		ss << "  ("
-		   << std::fixed << setprecision(1)
-		   << pct(s.ttStoresExact, ttStoreSum) << "% exact, "
-		   << pct(s.ttStoresLower, ttStoreSum) << "% lower, "
-		   << pct(s.ttStoresUpper, ttStoreSum) << "% upper)";
-	}
-	ss << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Exact stores:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttStoresExact << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Lower-bound stores:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttStoresLower << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Upper-bound stores:" + CLR_RESET)
-	   << setw(VALUE_W) << right << s.ttStoresUpper << "\n";
-
-	const int lastLM   = lastNonZeroIndex(s.legalMoves, MAX_PLY);
-	const int lastPN   = lastNonZeroIndex(s.plyNodes, MAX_PLY);
-	const int lastCO   = lastNonZeroIndex(s.cutoffCount, MAX_PLY);
-	const int lastAny  = std::max({lastLM, lastPN, lastCO});
-
-	std::vector<double> avgCutIdx(std::max(0, lastAny) + 1, 0.0);
-	std::vector<double> firstPct(std::max(0, lastAny) + 1, 0.0);
-	for (int i = 0; i <= lastAny; ++i) {
-		if (i == 0) { avgCutIdx[i] = 0.0; firstPct[i] = 0.0; continue; }
+	std::vector<double> avgCutIdx(std::max((int16)0, lastAny) + 1, 0.0);
+	std::vector<double> firstPct(std::max((int16)0, lastAny) + 1, 0.0);
+	for (int16 i = 0; i <= lastAny; ++i) {
 		uint64 cc = s.cutoffCount[i];
 		avgCutIdx[i] = (cc > 0) ? static_cast<double>(s.cutoffIndexSum[i]) / static_cast<double>(cc) : 0.0;
 		firstPct[i]  = (cc > 0) ? (100.0 * static_cast<double>(s.firstMoveCutoffs[i]) / static_cast<double>(cc)) : 0.0;
 	}
 
-	ss << "──────────────────────────────────────────────────────────\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Per-ply stats:" + CLR_RESET) << "\n"
-	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Legal moves per ply [" + std::to_string(lastLM + 1) + "]:" + CLR_RESET) << " ";
+	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Per-ply stats:" + CLR_RESET) << "\n"
+	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Legal moves per ply [" + std::to_string(lastLM + 1) + "]:" + CLR_RESET) << " ";
 	printList(ss, s.legalMoves, MAX_PLY); ss << "\n";
 
-	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Nodes per ply [" + std::to_string(lastPN + 1) + "]:" + CLR_RESET) << " ";
+	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Nodes per ply [" + std::to_string(lastPN + 1) + "]:" + CLR_RESET) << " ";
 	printList(ss, s.plyNodes, MAX_PLY); ss << "\n";
 
-	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Cutoffs per ply [" + std::to_string(lastCO + 1) + "]:" + CLR_RESET) << " ";
+	ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Cutoffs per ply [" + std::to_string(lastCO + 1) + "]:" + CLR_RESET) << " ";
 	printList(ss, s.cutoffCount, MAX_PLY); ss << "\n";
 
 	if (lastAny >= 0) {
-		ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• Avg cutoff move index:" + CLR_RESET) << " ";
+		ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  Avg cutoff move index:" + CLR_RESET) << " ";
 		{
 			std::vector<double> tmp = avgCutIdx; 
 			ss << std::fixed << setprecision(2);
-			for (int i = 0; i <= lastAny; ++i) {
+			for (int16 i = 0; i <= lastAny; ++i) {
 				ss << avgCutIdx[i];
 				if (i < lastAny) ss << ", ";
 			}
 			ss << "\n";
 		}
-		ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	• First-move cutoffs (%):" + CLR_RESET) << " ";
+		ss << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "	  First-move cutoffs (%):" + CLR_RESET) << " ";
 		{
 			ss << std::fixed << setprecision(0);
-			for (int i = 0; i <= lastAny; ++i) {
+			for (int16 i = 0; i <= lastAny; ++i) {
 				ss << firstPct[i];
 				if (i < lastAny) ss << ", ";
 			}
@@ -647,7 +716,7 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 		}
 	}
 
-	ss << "──────────────────────────────────────────────────────────\n"
+	ss << SEP
 	   << setw(LABEL_W) << left << (std::string(CLR_LABEL) + "  Per-bucket stats:" + CLR_RESET) << "\n";
 
 	ss << "	" << setw(18) << left << "Bucket"
@@ -657,7 +726,7 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 	   << setw(24) << right << "First-move (%)"
 	   << "\n";
 
-	for (int i = 0; i < B_Count; ++i) {
+	for (int16 i = 0; i < B_Count; ++i) {
 		const uint64 tried   = s.bucketTried[i];
 		const uint64 cuts	= s.bucketCutoffs[i];
 		const double avgIdx  = cuts ? static_cast<double>(s.bucketIndexSum[i]) / static_cast<double>(cuts) : 0.0;
@@ -666,13 +735,12 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 		ss << "	" << setw(18) << left  << BUCKET_NAMES[i]
 		   << setw(18) << right << tried
 		   << setw(18) << right << cuts
-		   << setw(20) << right << (std::ostringstream() << std::fixed << setprecision(2) << avgIdx, ss.str().erase(ss.str().size()-ss.str().size()))
 		   << std::fixed << setprecision(2);
 		{
 			std::ostringstream tmp;
 			tmp.imbue(ss.getloc());
 			tmp << std::fixed << setprecision(2) << avgIdx;
-			ss << tmp.str();
+			ss << setw(20) << right << tmp.str();
 		}
 		{
 			std::ostringstream tmp;
@@ -682,13 +750,20 @@ void printSearchStats(const SearchStats& s, int depth, const Move& bestMove, dou
 		}
 	}
 
-	ss << "──────────────────────────────────────────────────────────\n";
+	ss << SEP;
 
-	std::cout << ss.str() << std::flush;
+	return ss.str();
 }
 
+void printSearchStats(const SearchStats& s, int16 depth, const Move& bestMove, double elapsed_ms, uint64 zobrist) {
+	std::string header = getHeaderSearchStats(s, depth, bestMove, elapsed_ms, zobrist);
+	std::string ttStats = getTTSearchStats(s);
+	std::string perPlyStats = getPerPlySearchStats(s);
 
-void printSearchTimes(const SearchTimes& t) {
+	std::cout << header << ttStats << perPlyStats << std::endl;
+}
+
+std::string getSearchTimes(const SearchTimes& t) {
 	std::ostringstream ss;
 	ss.imbue(std::locale(std::locale(), new CommaNum));
 
@@ -707,7 +782,7 @@ void printSearchTimes(const SearchTimes& t) {
 		uint64ToElapsedUS(t.repetitionPop);
 
 	ss << "\n"
-		<< "──────────────────────────────────────────────────────────\n"
+		<< SEP
 		<< CLR_TITLE << "Times " << CLR_RESET << "\n"
 		<< CLR_LABEL "  Total time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< t.total << "ms" << CLR_RESET << "\n"
@@ -726,7 +801,7 @@ void printSearchTimes(const SearchTimes& t) {
 
 		<< CLR_LABEL "  Pick context setup time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< uint64ToElapsedUS(t.pickContextSetup) << "μs" << CLR_RESET << "\n"
-		<< "──────────────────────────────────────────────────────────\n"
+		<< SEP
 
 		<< CLR_LABEL "  Move generation time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< uint64ToElapsedUS(t.moveGeneration) << "μs" << CLR_RESET << "\n"
@@ -742,24 +817,27 @@ void printSearchTimes(const SearchTimes& t) {
 
 		<< CLR_LABEL "  Move unmaking time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< uint64ToElapsedUS(t.moveUnmaking) << "μs" << CLR_RESET << "\n"
-		<< "──────────────────────────────────────────────────────────\n"
+		<< SEP
 
 		<< CLR_LABEL "  Repetition push time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< uint64ToElapsedUS(t.repetitionPush) << "μs" << CLR_RESET << "\n"
 
 		<< CLR_LABEL "  Repetition pop time: " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< uint64ToElapsedUS(t.repetitionPop) << "μs" << CLR_RESET << "\n"
-		<< "──────────────────────────────────────────────────────────\n"
+		<< SEP
 
 		<< CLR_LABEL "  Sum (tracked): " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< static_cast<double>(sum_us) << "μs" << CLR_RESET << "\n"
 		<< CLR_LABEL "  Sum (tracked): " << CLR_VALUE << std::fixed << std::setprecision(2)
 		<< (static_cast<double>(sum_us) / 1000.0) << "ms" << CLR_RESET << "\n"
-		<< "──────────────────────────────────────────────────────────\n";
+		<< SEP;
 
-	std::cout << ss.str() << std::flush;
+	return ss.str();
 }
 
-#endif
+void printSearchTimes(const SearchTimes& t) {
+	std::string s = getSearchTimes(t);
+	std::cout << s << std::flush;
+}
 
 

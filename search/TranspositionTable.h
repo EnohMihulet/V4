@@ -54,22 +54,28 @@ typedef struct TranspositionTable {
 		return (zobrist ^ (zobrist >> 32)) & (TABLE_SIZE - 1); // Or just zobrist & (TABLE_SIZE - 1) probably little to no difference
 	}
 
+	inline NodeType getNodeType(int16 alpha, int16 beta, int16 originalAlpha) const {
+		if (alpha >= beta) return LowerBound;
+		else if (alpha <= originalAlpha) return UpperBound;
+		return Exact;
+	}
+
 	inline void storeEntry(const Entry& entry) {
+		// NOTE: Might not working correctly depending on entry
 		uint32 i = index(entry.zobrist);
 		if (table[i].zobrist != 0 && table[i].depth > entry.depth)
 			return;
 		table[i] = entry;
 	}
 
-//	inline int16 getEval(uint64 zobrist) const {
-//		const Entry& entry = table[index(zobrist)];
-//		return (entry.zobrist == zobrist) ? entry.score : SCORE_SENTINAL;
-//	}
-
-	inline NodeType getNodeType(int16 alpha, int16 beta, int16 originalAlpha) const {
-		if (alpha >= beta) return LowerBound;
-		else if (alpha <= originalAlpha) return UpperBound;
-		return Exact;
+	inline void storeEntry(uint64 zobrist, Move m, uint8 pliesFromRoot, uint8 pliesRemaining, int16 alpha, int16 beta, int16 originalAlpha) {
+		// FIX: Should TTScore or alpha be used to get the node type?
+		NodeType n = getNodeType(alpha, beta, originalAlpha);
+		Entry e{zobrist, m, toTTScore(alpha, pliesFromRoot), pliesRemaining, n};
+		uint32 i = index(e.zobrist);
+		if (table[i].zobrist != 0 && table[i].depth > e.depth)
+			return;
+		table[i] = e;
 	}
 
 	inline ttLookUpData lookUp(uint64 zobrist, int16 alpha, int16 beta, uint8 pliesRemaining, SearchStats& stats) {
